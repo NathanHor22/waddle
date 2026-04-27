@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Read(//c/Users/damna/**)",
+      "Bash(npm config *)",
+      "Bash(npx create-vite@latest . --template react --force)",
+      "Bash(npm install *)"
+    ]
+  }
+}
