@@ -1,0 +1,22 @@
+{
+  "name": "waddle-agent",
+  "version": "0.0.1",
+  "description": "Waddle procurement AI agent — powered by Lua AI",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "lua test",
+    "push": "lua push",
+    "deploy": "lua deploy",
+    "chat": "lua chat"
+  },
+  "dependencies": {
+    "lua-cli": "^3.12.2",
+    "playwright": "^1.49.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.2"
+  }
+}
