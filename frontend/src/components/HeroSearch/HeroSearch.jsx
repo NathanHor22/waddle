@@ -1,18 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation } from '../../context/LocationContext'
 import { useWaddleChat } from '../../hooks/useWaddleChat'
+import { QuestionCard } from '../QuestionCard/QuestionCard'
+import { RecommendationCard } from '../RecommendationCard/RecommendationCard'
 import './HeroSearch.css'
 
 export function HeroSearch() {
   const { location } = useLocation()
-  const { messages, isLoading, send } = useWaddleChat()
+  const { messages, isLoading, send, answer, negotiate } = useWaddleChat()
   const [query, setQuery] = useState('')
   const textareaRef = useRef(null)
   const messagesEndRef = useRef(null)
 
   const hasSentMessage = messages.length > 0
 
-  // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -50,7 +51,7 @@ export function HeroSearch() {
 
   return (
     <div className={`hero-wrapper${hasSentMessage ? ' hero-wrapper--chat' : ''}`}>
-      {/* ── Hero copy (hidden once chat starts) ─────────── */}
+      {/* ── Hero copy ────────────────────────────────────── */}
       {!hasSentMessage && (
         <section className="hero">
           <p className="hero__tagline">
@@ -62,17 +63,47 @@ export function HeroSearch() {
         </section>
       )}
 
-      {/* ── Message thread ──────────────────────────────── */}
+      {/* ── Message thread ───────────────────────────────── */}
       {hasSentMessage && (
         <div className="chat-thread">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`chat-msg chat-msg--${msg.role}${msg.error ? ' chat-msg--error' : ''}`}>
-              <p className="chat-msg__text">
-                {msg.text}
-                {msg.streaming && <span className="chat-cursor" aria-hidden="true" />}
-              </p>
-            </div>
-          ))}
+          {messages.map((msg) => {
+            if (msg.role === 'options') {
+              return (
+                <div key={msg.id} className="chat-msg chat-msg--assistant">
+                  <QuestionCard
+                    question={msg.question}
+                    choices={msg.choices}
+                    answered={msg.answered}
+                    selectedChoice={msg.selectedChoice}
+                    onAnswer={(choice) => answer(msg.id, choice)}
+                  />
+                </div>
+              )
+            }
+
+            if (msg.role === 'recommendations') {
+              return (
+                <div key={msg.id} className="rec-grid">
+                  {msg.items.slice(0, 4).map((item, i) => (
+                    <RecommendationCard
+                      key={i}
+                      item={item}
+                      onNegotiate={negotiate}
+                    />
+                  ))}
+                </div>
+              )
+            }
+
+            return (
+              <div key={msg.id} className={`chat-msg chat-msg--${msg.role}${msg.error ? ' chat-msg--error' : ''}`}>
+                <p className="chat-msg__text">
+                  {msg.text}
+                  {msg.streaming && <span className="chat-cursor" aria-hidden="true" />}
+                </p>
+              </div>
+            )
+          })}
           <div ref={messagesEndRef} />
         </div>
       )}

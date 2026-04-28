@@ -218,6 +218,14 @@
   border: 1px solid var(--color-slate-200);
 }
 
+/* ── Recommendation grid ──────────────────────────────────── */
+.rec-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
 /* ── Mobile ───────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .hero-wrapper {
@@ -251,5 +259,9 @@
 
   .hero__hint {
     display: none;
+  }
+
+  .rec-grid {
+    grid-template-columns: 1fr;
   }
 }
