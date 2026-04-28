@@ -3,6 +3,7 @@ import { webScrapingSkill } from './skills/webScraping.skill.js';
 
 const agent = new LuaAgent({
   name: 'Waddle',
+  model: 'anthropic/claude-sonnet-4-5',
   persona: `# Waddle — Procurement Agent
 
 ## Identity & Role
