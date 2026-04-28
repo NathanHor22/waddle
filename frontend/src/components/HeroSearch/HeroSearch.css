@@ -218,6 +218,50 @@
   border: 1px solid var(--color-slate-200);
 }
 
+/* ── Recommendation section ───────────────────────────────── */
+.rec-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rec-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rec-section__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-slate);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rec-section__export {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-slate);
+  background: transparent;
+  border: 1.5px solid var(--color-slate-200);
+  border-radius: 8px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.rec-section__export:hover {
+  color: var(--color-navy);
+  border-color: var(--color-navy);
+  background: rgba(26, 58, 82, 0.04);
+}
+
 /* ── Recommendation grid ──────────────────────────────────── */
 .rec-grid {
   width: 100%;

@@ -31,7 +31,9 @@
       "Bash(curl -s http://localhost:5174/)",
       "Bash(curl -s \"http://localhost:5174/src/components/HeroSearch/HeroSearch.jsx\")",
       "Bash(curl -s \"http://localhost:5174/@fs/$\\(pwd\\)/frontend/src/components/QuestionCard/QuestionCard.jsx\")",
-      "Bash(curl -s \"http://localhost:5174/src/components/RecommendationCard/RecommendationCard.jsx\")"
+      "Bash(curl -s \"http://localhost:5174/src/components/RecommendationCard/RecommendationCard.jsx\")",
+      "Bash(node -e \"require\\('xlsx'\\); console.log\\('xlsx installed ok'\\)\")",
+      "Bash(ls node_modules/xlsx/package.json)"
     ]
   }
 }
