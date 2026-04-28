@@ -15,7 +15,16 @@
       "Bash(node -e \"const lua = require\\('lua-cli'\\); console.log\\(Object.keys\\(lua\\)\\)\")",
       "Bash(node -e ' *)",
       "Bash(xargs grep *)",
-      "Bash(npx playwright *)"
+      "Bash(npx playwright *)",
+      "Bash(npm run *)",
+      "Bash(lua push *)",
+      "Bash(lua persona *)",
+      "WebSearch",
+      "WebFetch(domain:chat.heylua.ai)",
+      "WebFetch(domain:heylua.ai)",
+      "Bash(cp -r /c/Users/damna/Documents/GitHub/waddle/agent/src/skills /c/Users/damna/Documents/GitHub/waddle/src/skills)",
+      "Bash(cp -r /c/Users/damna/Documents/GitHub/waddle/agent/src/tools  /c/Users/damna/Documents/GitHub/waddle/src/tools)",
+      "Bash(cp -r /c/Users/damna/Documents/GitHub/waddle/agent/src/utils  /c/Users/damna/Documents/GitHub/waddle/src/utils)"
     ]
   }
 }
