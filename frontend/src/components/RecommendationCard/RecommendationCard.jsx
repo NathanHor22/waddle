@@ -55,7 +55,7 @@ export function RecommendationCard({ item, onNegotiate }) {
         </button>
         <button
           className="rec-card__btn rec-card__btn--secondary"
-          onClick={() => onNegotiate(company)}
+          onClick={() => onNegotiate(item)}
         >
           Negotiate
         </button>

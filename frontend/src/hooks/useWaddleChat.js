@@ -215,16 +215,15 @@ export function useWaddleChat() {
     }
   }, [_streamFromLLM])
 
-  const negotiate = useCallback(async (company) => {
-    const userText = `Negotiate with ${company}`
-    setMessages(prev => [
-      ...prev,
-      { id: crypto.randomUUID(), role: 'user', text: userText },
-    ])
-    await _streamFromLLM(
-      `Help me negotiate with ${company}. Based on our procurement context, draft a professional message I can send to get a better price or terms.`
-    )
-  }, [_streamFromLLM])
+  const [negotiationItem, setNegotiationItem] = useState(null)
 
-  return { messages, isLoading, send, answer, negotiate }
+  const startNegotiate = useCallback((item) => {
+    setNegotiationItem(item)
+  }, [])
+
+  const closeNegotiation = useCallback(() => {
+    setNegotiationItem(null)
+  }, [])
+
+  return { messages, isLoading, send, answer, startNegotiate, closeNegotiation, negotiationItem }
 }

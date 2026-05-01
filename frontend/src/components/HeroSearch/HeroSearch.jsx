@@ -3,12 +3,13 @@ import { useLocation } from '../../context/LocationContext'
 import { useWaddleChat } from '../../hooks/useWaddleChat'
 import { QuestionCard } from '../QuestionCard/QuestionCard'
 import { RecommendationCard } from '../RecommendationCard/RecommendationCard'
+import { NegotiateModal } from '../NegotiateModal/NegotiateModal'
 import { exportRecommendationsToExcel } from '../../lib/exportToExcel'
 import './HeroSearch.css'
 
 export function HeroSearch() {
   const { location } = useLocation()
-  const { messages, isLoading, send, answer, negotiate } = useWaddleChat()
+  const { messages, isLoading, send, answer, startNegotiate, closeNegotiation, negotiationItem } = useWaddleChat()
   const [query, setQuery] = useState('')
   const textareaRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -101,7 +102,7 @@ export function HeroSearch() {
                       <RecommendationCard
                         key={i}
                         item={item}
-                        onNegotiate={negotiate}
+                        onNegotiate={startNegotiate}
                       />
                     ))}
                   </div>
@@ -160,6 +161,9 @@ export function HeroSearch() {
           )}
         </form>
       </div>
+      {negotiationItem && (
+        <NegotiateModal item={negotiationItem} onClose={closeNegotiation} />
+      )}
     </div>
   )
 }
