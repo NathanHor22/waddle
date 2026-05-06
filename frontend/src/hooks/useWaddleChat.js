@@ -99,13 +99,15 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
   // can use the new ID before the parent prop re-renders.
   const activeSessionRef = useRef(null)
 
-  // Keep activeSessionRef in sync with the incoming prop
+  // When the sessionId prop changes, load (or reset) the chat.
+  // Skip if activeSessionRef already equals sessionId — that means WE just
+  // created this session ourselves (via ensureSession), so messages are
+  // already in state and we must not overwrite them with an empty DB fetch.
   useEffect(() => {
-    activeSessionRef.current = sessionId
-  }, [sessionId])
+    if (activeSessionRef.current === sessionId) return
 
-  // When the sessionId prop changes, load (or reset) the chat
-  useEffect(() => {
+    activeSessionRef.current = sessionId
+
     if (sessionId === null) {
       setMessages([])
       flowRef.current = null
@@ -114,6 +116,7 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
       return
     }
 
+    // User clicked a past session in the sidebar — restore it from DB
     getSession(sessionId).then(({ session, messages: dbMessages }) => {
       threadId.current = session.threadId
       const restored = reconstructMessages(dbMessages)
