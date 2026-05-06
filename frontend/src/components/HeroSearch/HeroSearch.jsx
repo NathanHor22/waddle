@@ -4,13 +4,18 @@ import { useWaddleChat } from '../../hooks/useWaddleChat'
 import { QuestionCard } from '../QuestionCard/QuestionCard'
 import { RecommendationCard } from '../RecommendationCard/RecommendationCard'
 import { NegotiateModal } from '../NegotiateModal/NegotiateModal'
+import { EmailModal } from '../EmailModal/EmailModal'
 import { exportRecommendationsToExcel } from '../../lib/exportToExcel'
 import './HeroSearch.css'
 
 export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
   const { location } = useLocation()
-  const { messages, isLoading, send, answer, startNegotiate, closeNegotiation, negotiationItem, currentSessionId } =
-    useWaddleChat({ sessionId, onSessionCreated })
+  const {
+    messages, isLoading, send, answer,
+    startNegotiate, closeNegotiation, negotiationItem,
+    startEmail, closeEmail, emailItem,
+    currentSessionId,
+  } = useWaddleChat({ sessionId, onSessionCreated })
   const [query, setQuery] = useState('')
   const textareaRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -104,6 +109,7 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
                         key={i}
                         item={item}
                         onNegotiate={startNegotiate}
+                        onEmail={startEmail}
                       />
                     ))}
                   </div>
@@ -167,6 +173,12 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
           item={negotiationItem}
           sessionId={currentSessionId}
           onClose={closeNegotiation}
+        />
+      )}
+      {emailItem && (
+        <EmailModal
+          item={emailItem}
+          onClose={closeEmail}
         />
       )}
     </div>

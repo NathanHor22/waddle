@@ -4,16 +4,20 @@ import './QuestionCard.css'
 export function QuestionCard({ question, choices, onAnswer, answered, selectedChoice }) {
   const [custom, setCustom] = useState('')
   const [showCustom, setShowCustom] = useState(false)
+  // Guard against double-clicks racing with the `answered` prop update
+  const [fired, setFired] = useState(false)
 
   function handleChoice(choice) {
-    if (answered) return
+    if (answered || fired) return
+    setFired(true)
     onAnswer(choice)
   }
 
   function handleCustomSubmit(e) {
     e.preventDefault()
     const trimmed = custom.trim()
-    if (!trimmed || answered) return
+    if (!trimmed || answered || fired) return
+    setFired(true)
     onAnswer(trimmed)
   }
 

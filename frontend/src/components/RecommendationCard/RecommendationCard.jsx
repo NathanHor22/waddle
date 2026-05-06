@@ -1,12 +1,10 @@
 import './RecommendationCard.css'
 
-export function RecommendationCard({ item, onNegotiate }) {
+export function RecommendationCard({ item, onNegotiate, onEmail }) {
   const { company, price, phone, email, website } = item
 
   function handleBuyNow() {
-    if (website) {
-      window.open(website, '_blank', 'noopener,noreferrer')
-    }
+    if (website) window.open(website, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -45,20 +43,37 @@ export function RecommendationCard({ item, onNegotiate }) {
         </div>
       </div>
 
-      <div className="rec-card__actions">
+      <div className={`rec-card__actions ${!phone ? 'rec-card__actions--email-only' : ''}`}>
+        {/* Buy Now — left slot */}
         <button
-          className="rec-card__btn rec-card__btn--primary"
+          className="rec-card__btn rec-card__btn--buy"
           onClick={handleBuyNow}
           disabled={!website}
+          title={website ? 'Open supplier website' : 'No website available'}
         >
           Buy Now
         </button>
+
+        {/* Email — only shown when supplier has no phone (email-only) or always */}
         <button
-          className="rec-card__btn rec-card__btn--secondary"
-          onClick={() => onNegotiate(item)}
+          className="rec-card__btn rec-card__btn--email"
+          onClick={() => onEmail(item)}
+          title="Send procurement email"
         >
-          Negotiate
+          <EmailBtnIcon />
+          {phone ? 'Email' : 'Send Email'}
         </button>
+
+        {/* Negotiate via WhatsApp — only when phone exists */}
+        {phone && (
+          <button
+            className="rec-card__btn rec-card__btn--negotiate"
+            onClick={() => onNegotiate(item)}
+            title="Negotiate via WhatsApp"
+          >
+            Negotiate
+          </button>
+        )}
       </div>
     </div>
   )
@@ -76,6 +91,16 @@ function PhoneIcon() {
 function EmailIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+      <polyline points="22,6 12,13 2,6"/>
+    </svg>
+  )
+}
+
+function EmailBtnIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
       <polyline points="22,6 12,13 2,6"/>

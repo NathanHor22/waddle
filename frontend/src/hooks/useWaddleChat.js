@@ -151,6 +151,9 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
 
   const _streamFromLLM = useCallback(async (llmMessage, sid) => {
     const assistantId = crypto.randomUUID()
+    // Track full text locally so side-effects live outside state updaters
+    let fullText = ''
+
     setMessages(prev => [
       ...prev,
       { id: assistantId, role: 'assistant', text: '', streaming: true },
@@ -162,59 +165,51 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
       locationContext: lastLocationRef.current,
       threadId: threadId.current,
       onChunk: (delta) => {
+        fullText += delta
         setMessages(prev =>
           prev.map(m => m.id === assistantId ? { ...m, text: m.text + delta } : m)
         )
       },
       onDone: () => {
-        setMessages(prev => {
-          const withDone = prev.map(m =>
-            m.id === assistantId ? { ...m, streaming: false } : m
-          )
-          const assistantMsg = withDone.find(m => m.id === assistantId)
-          if (!assistantMsg) return withDone
+        const activeSid = sid ?? activeSessionRef.current
+        const recs = parseRecommendations(fullText)
+        const opts = parseOptionsBlock(fullText)
 
-          const activeSid = sid ?? activeSessionRef.current
-
-          // Recommendations block
-          const recs = parseRecommendations(assistantMsg.text)
-          if (recs) {
-            const cleanText = assistantMsg.text.replace(RECOMMENDATIONS_RE, '').trim()
-            flowDoneRef.current = true
-            flowRef.current = null
-            if (activeSid) {
-              if (cleanText) persist('assistant', { text: cleanText }, activeSid)
-              persist('recommendations', { items: recs }, activeSid)
-            }
-            return [
-              ...withDone.map(m => m.id === assistantId ? { ...m, text: cleanText } : m),
-              { id: crypto.randomUUID(), role: 'recommendations', items: recs },
-            ]
-          }
-
-          // LLM-driven options block
-          const opts = parseOptionsBlock(assistantMsg.text)
-          if (opts) {
-            const cleanText = assistantMsg.text.replace(OPTIONS_RE, '').trim()
-            if (activeSid && cleanText) persist('assistant', { text: cleanText }, activeSid)
-            return [
-              ...withDone.map(m => m.id === assistantId ? { ...m, text: cleanText } : m),
-              {
-                id: crypto.randomUUID(),
-                role: 'options',
-                question: opts.question,
-                choices: opts.choices,
-                answered: false,
-                selectedChoice: null,
-              },
-            ]
-          }
-
-          // Plain assistant message
-          if (activeSid) persist('assistant', { text: assistantMsg.text }, activeSid)
+        if (recs) {
+          const cleanText = fullText.replace(RECOMMENDATIONS_RE, '').trim()
+          // Side effects outside the updater — safe from StrictMode double-invocation
+          flowDoneRef.current = true
           flowRef.current = null
-          return withDone
-        })
+          if (activeSid) {
+            if (cleanText) persist('assistant', { text: cleanText }, activeSid)
+            persist('recommendations', { items: recs }, activeSid)
+          }
+          setMessages(prev => [
+            ...prev.map(m => m.id === assistantId ? { ...m, text: cleanText, streaming: false } : m),
+            { id: crypto.randomUUID(), role: 'recommendations', items: recs },
+          ])
+        } else if (opts) {
+          const cleanText = fullText.replace(OPTIONS_RE, '').trim()
+          if (activeSid && cleanText) persist('assistant', { text: cleanText }, activeSid)
+          setMessages(prev => [
+            ...prev.map(m => m.id === assistantId ? { ...m, text: cleanText, streaming: false } : m),
+            {
+              id: crypto.randomUUID(),
+              role: 'options',
+              question: opts.question,
+              choices: opts.choices,
+              answered: false,
+              selectedChoice: null,
+            },
+          ])
+        } else {
+          flowRef.current = null
+          if (activeSid) persist('assistant', { text: fullText }, activeSid)
+          setMessages(prev =>
+            prev.map(m => m.id === assistantId ? { ...m, streaming: false } : m)
+          )
+        }
+
         setIsLoading(false)
       },
       onError: (errMsg) => {
@@ -268,23 +263,24 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
   const answer = useCallback((questionId, choiceText) => {
     if (!flowRef.current) return
 
-    // Mark the answered question in state and persist it
-    setMessages(prev => {
-      const optMsg = prev.find(m => m.id === questionId)
-      if (optMsg) {
-        persist('options', {
-          question: optMsg.question,
-          choices: optMsg.choices,
-          answered: true,
-          selectedChoice: choiceText,
-        })
-      }
-      return prev.map(m =>
-        m.id === questionId
-          ? { ...m, answered: true, selectedChoice: choiceText }
-          : m
-      )
-    })
+    // Capture question index BEFORE push (for persist)
+    const questionIndex = flowRef.current.answers.length
+    const questionData = PROCUREMENT_QUESTIONS[questionIndex]
+
+    // Pure state update — no side effects inside the updater
+    setMessages(prev =>
+      prev.map(m => m.id === questionId ? { ...m, answered: true, selectedChoice: choiceText } : m)
+    )
+
+    // Persist outside the updater
+    if (questionData) {
+      persist('options', {
+        question: questionData.q,
+        choices: questionData.choices,
+        answered: true,
+        selectedChoice: choiceText,
+      })
+    }
 
     flowRef.current.answers.push(choiceText)
     const { answers } = flowRef.current
@@ -302,7 +298,9 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
           selectedChoice: null,
         },
       ])
-    } else {
+    } else if (nextIndex === PROCUREMENT_QUESTIONS.length) {
+      // Exactly 4 answers — call LLM once. Any extra calls (double-click race)
+      // land in the implicit else and are silently ignored.
       const compiled = compileProcurementMessage(
         flowRef.current.originalQuery,
         answers,
@@ -313,14 +311,12 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
   }, [_streamFromLLM])
 
   const [negotiationItem, setNegotiationItem] = useState(null)
+  const startNegotiate = useCallback((item) => setNegotiationItem(item), [])
+  const closeNegotiation = useCallback(() => setNegotiationItem(null), [])
 
-  const startNegotiate = useCallback((item) => {
-    setNegotiationItem(item)
-  }, [])
-
-  const closeNegotiation = useCallback(() => {
-    setNegotiationItem(null)
-  }, [])
+  const [emailItem, setEmailItem] = useState(null)
+  const startEmail = useCallback((item) => setEmailItem(item), [])
+  const closeEmail = useCallback(() => setEmailItem(null), [])
 
   return {
     messages,
@@ -330,6 +326,9 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
     startNegotiate,
     closeNegotiation,
     negotiationItem,
+    startEmail,
+    closeEmail,
+    emailItem,
     currentSessionId: activeSessionRef.current,
   }
 }
