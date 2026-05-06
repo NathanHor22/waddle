@@ -4,7 +4,8 @@
       "Bash(Remove-Item \"c:\\\\Users\\\\damna\\\\Documents\\\\GitHub\\\\waddle\\\\backend\\\\src\\\\routes\\\\webhook.ts\" -Force)",
       "Bash(Remove-Item \"c:\\\\Users\\\\damna\\\\Documents\\\\GitHub\\\\waddle\\\\backend\\\\src\\\\services\\\\whatsapp.ts\" -Force)",
       "Bash(Write-Output \"deleted\")",
-      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3001/api/whatsapp/status\" -UseBasicParsing)"
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3001/api/whatsapp/status\" -UseBasicParsing)",
+      "Bash(Copy-Item \"c:\\\\Users\\\\damna\\\\Documents\\\\GitHub\\\\waddle\\\\images\\\\penguin-footprint-steps-vector.jpg\" \"c:\\\\Users\\\\damna\\\\Documents\\\\GitHub\\\\waddle\\\\frontend\\\\public\\\\logo.jpg\")"
     ]
   }
 }

@@ -15,7 +15,7 @@
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
-  color: var(--color-navy);
+  color: #f1f5f9;
   font-size: 0.9rem;
   font-weight: 500;
   transition: opacity 0.15s ease;
@@ -42,7 +42,7 @@
 .loc-trigger__chevron {
   display: flex;
   align-items: center;
-  color: var(--color-slate);
+  color: #94a3b8;
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   margin-left: 2px;
 }
@@ -89,7 +89,7 @@
   width: 100%;
   padding: 6px 8px;
   border-radius: var(--radius-sm);
-  color: var(--color-navy);
+  color: #f1f5f9;
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;

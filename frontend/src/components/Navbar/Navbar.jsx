@@ -11,19 +11,28 @@ export function Navbar() {
   return (
     <>
       <header className="navbar">
-        <LocationSwitcher />
+        <div className="navbar__logo">
+          <img src="/logo.jpg" alt="Waddle logo" className="navbar__logo-img" />
+          <span className="navbar__logo-name">Waddle</span>
+        </div>
 
-        <button
-          className={`wa-status-btn ${isConnected ? 'wa-status-btn--connected' : 'wa-status-btn--disconnected'}`}
-          onClick={() => !isConnected && setShowConnect(true)}
-          title={isConnected ? 'WhatsApp connected' : 'Connect WhatsApp'}
-        >
-          <span className={`wa-status-dot ${isConnected ? 'wa-status-dot--on' : 'wa-status-dot--off'}`} />
-          <WhatsAppIcon />
-          <span className="wa-status-label">
-            {isConnected ? 'Connected' : status === 'connecting' ? 'Connecting...' : 'Connect WhatsApp'}
-          </span>
-        </button>
+        <div className="navbar__center">
+          <LocationSwitcher />
+        </div>
+
+        <div className="navbar__right">
+          <button
+            className={`wa-status-btn ${isConnected ? 'wa-status-btn--connected' : 'wa-status-btn--disconnected'}`}
+            onClick={() => !isConnected && setShowConnect(true)}
+            title={isConnected ? 'WhatsApp connected' : 'Connect WhatsApp'}
+          >
+            <span className={`wa-status-dot ${isConnected ? 'wa-status-dot--on' : 'wa-status-dot--off'}`} />
+            <WhatsAppIcon />
+            <span className="wa-status-label">
+              {isConnected ? 'Connected' : status === 'connecting' ? 'Connecting...' : 'Connect WhatsApp'}
+            </span>
+          </button>
+        </div>
       </header>
 
       {showConnect && (
