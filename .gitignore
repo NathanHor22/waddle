@@ -21,3 +21,4 @@ dist-ssr
 *.sw?
 dist-v2/
 backend/.env
+backend/.baileys-auth/

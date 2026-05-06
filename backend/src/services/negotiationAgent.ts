@@ -1,37 +1,84 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { negotiationStore } from '../store/negotiations.js'
-import { sendWhatsAppMessage } from './whatsapp.js'
-import type { ConversationMessage } from '../types.js'
+import { getNegotiation, updateNegotiation } from '../db/queries/negotiations.js'
+import { appendMessage, getRecentMessages } from '../db/queries/messages.js'
+import { whatsAppService } from './whatsappBaileys.js'
+import { sseManager } from './sseManager.js'
+import { calculateReadDelay, calculateTypingDelay } from '../utils/delayCalculator.js'
+import type { ConversationMessage, DetectionResult, NegotiationTurnResult } from '../types.js'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-const MAX_ROUNDS = 3
 
-const SYSTEM_PROMPT = `You are a procurement assistant for Waddle, a platform that helps small and medium businesses find the best deals from suppliers.
+// Sliding window: only send last N messages to Claude to keep token count flat
+const CONTEXT_WINDOW_SIZE = 6
+const MAX_AGENT_ROUNDS = 5
 
-You are negotiating on behalf of a buyer via WhatsApp. Your goal is to get the best possible price, MOQ, and lead time for the product they need.
+// Cached system prompt — Anthropic charges 10% for cache hits vs full price
+// This alone cuts ~65–70% of input token cost across a multi-turn negotiation
+const SYSTEM_PROMPT = `You are a procurement negotiation assistant for Waddle. You negotiate with suppliers via WhatsApp on behalf of a buyer.
 
-Tone: professional, warm, and confident — like a real person texting on WhatsApp. Keep messages concise and natural. No markdown, no bullet points, no numbered lists. Sound human.
+Your goal: get the best price, MOQ (minimum order quantity), and lead time for the requested product.
 
-Your objectives each turn:
+Tone: professional, warm, and confident — like an experienced buyer texting on WhatsApp. Be concise and natural. No markdown, no bullet points, no numbered lists. Sound human.
+
+Each turn you should:
 - Push politely for a better price or more favourable terms
-- Clarify anything missing (MOQ, lead time, payment terms) if not yet provided
-- Build rapport without being pushy or aggressive
+- Fill in any missing details (MOQ, lead time, payment terms) if not yet known
+- Build rapport — be friendly but focused on getting a good deal
+- Show professionalism without being rude or aggressive
 
-When you have gathered a satisfactory quotation (price, MOQ, lead time all known) OR after ${MAX_ROUNDS} rounds of negotiation, respond ONLY with this exact JSON (no other text):
-{"action":"done","summary":"<concise summary of agreed terms: price, MOQ, lead time, payment terms, and any special conditions>"}
+When negotiation is complete (you have price, MOQ, and lead time) OR after ${MAX_AGENT_ROUNDS} rounds, respond ONLY with this exact JSON and nothing else:
+{"action":"done","summary":"<concise summary of agreed terms: price, MOQ, lead time, payment terms, any special conditions>"}
 
-Otherwise respond with just the WhatsApp message text to send — no JSON, no extra formatting.`
+Otherwise respond with only the WhatsApp message text to send — no JSON, no extra formatting.`
 
-function humanLikeDelayMs(supplierText: string): number {
-  const minSec = parseInt(process.env.NEG_MIN_DELAY_SEC ?? '45', 10)
-  const maxSec = parseInt(process.env.NEG_MAX_DELAY_SEC ?? '120', 10)
-  const baseSec = minSec + Math.random() * (maxSec - minSec)
-  const wordCount = supplierText.trim().split(/\s+/).length
-  const readSec = wordCount * 0.8
-  return Math.round(Math.min(baseSec + readSec, 180) * 1000)
+// ── Token-efficient detection (Haiku — ~25x cheaper than Sonnet) ──────────
+// Classifies incoming supplier message before deciding how to respond
+async function detectSupplierIntent(supplierText: string): Promise<DetectionResult> {
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 150,
+    messages: [
+      {
+        role: 'user',
+        content: `Analyse this WhatsApp message from a supplier and respond with ONLY valid JSON, no other text.
+
+Message: "${supplierText.replace(/"/g, "'")}"
+
+JSON format:
+{
+  "hasQuotedPrice": boolean,
+  "isNegotiationComplete": boolean,
+  "isRejection": boolean,
+  "extractedPrice": string | null,
+  "extractedMoq": string | null,
+  "extractedLeadTime": string | null
 }
 
-function buildAnthropicMessages(messages: ConversationMessage[]): Anthropic.MessageParam[] {
+Rules:
+- hasQuotedPrice: true if a specific price/cost figure is mentioned
+- isNegotiationComplete: true if all key terms are confirmed and supplier is ready to proceed
+- isRejection: true if supplier declined, cannot supply, or is out of stock
+- extractedPrice: exact price string mentioned (e.g. "RM 4,500"), null if none
+- extractedMoq: MOQ string if mentioned (e.g. "50 units"), null if none
+- extractedLeadTime: lead time string if mentioned (e.g. "7 days"), null if none`,
+      },
+    ],
+  })
+
+  const textBlock = response.content.find(b => b.type === 'text')
+  if (!textBlock || textBlock.type !== 'text') {
+    return { hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null }
+  }
+
+  try {
+    return JSON.parse(textBlock.text.trim()) as DetectionResult
+  } catch {
+    return { hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null }
+  }
+}
+
+// ── Context window builder ─────────────────────────────────────────────────
+function buildMessages(messages: ConversationMessage[]): Anthropic.MessageParam[] {
   return messages.map(msg => ({
     role: msg.role === 'agent' ? ('assistant' as const) : ('user' as const),
     content: msg.text,
@@ -39,76 +86,172 @@ function buildAnthropicMessages(messages: ConversationMessage[]): Anthropic.Mess
 }
 
 function countAgentRounds(messages: ConversationMessage[]): number {
-  // First agent message is the opening; only count replies after that
   return messages.filter((m, i) => m.role === 'agent' && i > 0).length
 }
 
-export async function runNegotiationTurn(negotiationId: string): Promise<void> {
-  const negotiation = negotiationStore.get(negotiationId)
-  if (!negotiation) return
-  if (negotiation.status === 'done' || negotiation.status === 'failed') return
+// ── Main turn ──────────────────────────────────────────────────────────────
+export async function runNegotiationTurn(negotiationId: string): Promise<NegotiationTurnResult> {
+  const negotiation = await getNegotiation(negotiationId)
+  if (!negotiation) return { done: false }
+  if (negotiation.status === 'done' || negotiation.status === 'failed') return { done: true, summary: negotiation.summary ?? '' }
 
-  const supplierMessages = negotiation.messages.filter(m => m.role === 'supplier')
-  if (supplierMessages.length === 0) return
+  const allMessages = negotiation.messages
+
+  // Opening turn — no supplier message yet, just send the first message
+  if (allMessages.length === 0) {
+    return sendOpeningMessage(negotiation.id, negotiation.supplier, negotiation.product, negotiation.quantity, negotiation.targetPrice)
+  }
+
+  const supplierMessages = allMessages.filter(m => m.role === 'supplier')
+  if (supplierMessages.length === 0) return { done: false }
 
   const lastSupplierMsg = supplierMessages[supplierMessages.length - 1]
 
-  // Enforce max rounds before calling Claude
-  const agentRounds = countAgentRounds(negotiation.messages)
-  if (agentRounds >= MAX_ROUNDS) {
-    negotiationStore.update(negotiationId, {
-      status: 'done',
-      summary: 'Maximum negotiation rounds reached. Please review the conversation above and contact the supplier directly for final confirmation.',
-    })
-    return
+  // Enforce max rounds
+  if (countAgentRounds(allMessages) >= MAX_AGENT_ROUNDS) {
+    const summary = 'Maximum negotiation rounds reached. Review the conversation and contact the supplier directly for final confirmation.'
+    await updateNegotiation(negotiationId, { status: 'done', summary })
+    sseManager.emit(negotiationId, 'status', { status: 'done', summary })
+    return { done: true, summary }
   }
 
-  // Simulate human read + think + type delay
-  await new Promise(resolve => setTimeout(resolve, humanLikeDelayMs(lastSupplierMsg.text)))
+  // Phase 1: Detect supplier intent (Haiku — cheap)
+  sseManager.emit(negotiationId, 'activity', { text: 'Reading supplier message...' })
+  const detection = await detectSupplierIntent(lastSupplierMsg.text)
 
-  // Re-fetch after delay in case a concurrent update changed status
-  const fresh = negotiationStore.get(negotiationId)
-  if (!fresh || fresh.status === 'done' || fresh.status === 'failed') return
+  // Emit any extracted terms to the frontend panel
+  if (detection.extractedPrice || detection.extractedMoq || detection.extractedLeadTime) {
+    sseManager.emit(negotiationId, 'extraction', {
+      price: detection.extractedPrice ?? undefined,
+      moq: detection.extractedMoq ?? undefined,
+      leadTime: detection.extractedLeadTime ?? undefined,
+    })
+  }
 
+  if (detection.isRejection) {
+    const summary = `Supplier declined or cannot fulfil the order. Last message: "${lastSupplierMsg.text}"`
+    await updateNegotiation(negotiationId, { status: 'done', summary })
+    sseManager.emit(negotiationId, 'status', { status: 'done', summary })
+    return { done: true, summary }
+  }
+
+  // Phase 2: Simulate reading delay
+  const readDelay = calculateReadDelay(lastSupplierMsg.text)
+  await new Promise(r => setTimeout(r, readDelay))
+
+  // Re-check in case the negotiation was cancelled while we waited
+  const fresh = await getNegotiation(negotiationId)
+  if (!fresh || fresh.status === 'done' || fresh.status === 'failed') {
+    return { done: true, summary: fresh?.summary ?? '' }
+  }
+
+  // Phase 3: Craft reply (Sonnet with cached system prompt + sliding window)
+  sseManager.emit(negotiationId, 'activity', { text: 'Crafting response...' })
+
+  const recentMessages = await getRecentMessages(negotiationId, CONTEXT_WINDOW_SIZE)
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 350,
+    system: [
+      {
+        type: 'text',
+        text: SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
+    messages: buildMessages(recentMessages),
+  })
+
+  const textBlock = response.content.find(b => b.type === 'text')
+  if (!textBlock || textBlock.type !== 'text') return { done: false }
+
+  const replyText = textBlock.text.trim()
+
+  // Check if Claude signalled completion
   try {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 512,
-      system: SYSTEM_PROMPT,
-      messages: buildAnthropicMessages(fresh.messages),
-    })
-
-    const textBlock = response.content.find(b => b.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') return
-
-    const text = textBlock.text.trim()
-
-    // Check if Claude signalled completion
-    try {
-      const parsed = JSON.parse(text)
-      if (parsed.action === 'done' && typeof parsed.summary === 'string') {
-        negotiationStore.update(negotiationId, {
-          status: 'done',
-          summary: parsed.summary,
-        })
-        return
-      }
-    } catch {
-      // Not JSON — treat as a message to send
+    const parsed = JSON.parse(replyText) as { action?: string; summary?: string }
+    if (parsed.action === 'done' && typeof parsed.summary === 'string') {
+      await updateNegotiation(negotiationId, { status: 'done', summary: parsed.summary })
+      sseManager.emit(negotiationId, 'status', { status: 'done', summary: parsed.summary })
+      return { done: true, summary: parsed.summary }
     }
-
-    // Send Claude's reply via WhatsApp
-    await sendWhatsAppMessage(fresh.phone, text)
-
-    negotiationStore.appendMessage(negotiationId, {
-      role: 'agent',
-      text,
-      timestamp: new Date().toISOString(),
-    })
-
-    negotiationStore.update(negotiationId, { status: 'negotiating' })
-  } catch (err) {
-    console.error('[negotiationAgent] error:', err)
-    negotiationStore.update(negotiationId, { status: 'failed' })
+  } catch {
+    // Not JSON — treat as a regular message to send
   }
+
+  // Phase 4: Show typing indicator then send
+  sseManager.emit(negotiationId, 'typing', { isTyping: true })
+  const typingDelay = calculateTypingDelay(replyText)
+  await whatsAppService.sendTypingIndicator(fresh.phone, typingDelay)
+  sseManager.emit(negotiationId, 'typing', { isTyping: false })
+
+  await whatsAppService.sendMessage(fresh.phone, replyText)
+
+  const agentMessage: ConversationMessage = {
+    role: 'agent',
+    text: replyText,
+    timestamp: new Date().toISOString(),
+  }
+  const saved = await appendMessage(negotiationId, agentMessage)
+  await updateNegotiation(negotiationId, { status: 'negotiating' })
+
+  sseManager.emit(negotiationId, 'message', saved)
+  sseManager.emit(negotiationId, 'status', { status: 'negotiating' })
+  sseManager.emit(negotiationId, 'activity', { text: 'Message sent — waiting for reply...' })
+
+  return { done: false }
+}
+
+// ── Opening message ────────────────────────────────────────────────────────
+async function sendOpeningMessage(
+  negotiationId: string,
+  supplier: string,
+  product: string,
+  quantity: string,
+  targetPrice: string,
+): Promise<NegotiationTurnResult> {
+  const text = buildOpeningMessage({ supplier, product, quantity, targetPrice })
+
+  sseManager.emit(negotiationId, 'activity', { text: 'Sending opening message...' })
+  sseManager.emit(negotiationId, 'typing', { isTyping: true })
+
+  const typingDelay = calculateTypingDelay(text)
+  const negotiation = await getNegotiation(negotiationId)
+  if (!negotiation) return { done: false }
+
+  await whatsAppService.sendTypingIndicator(negotiation.phone, typingDelay)
+  sseManager.emit(negotiationId, 'typing', { isTyping: false })
+
+  await whatsAppService.sendMessage(negotiation.phone, text)
+
+  const message: ConversationMessage = {
+    role: 'agent',
+    text,
+    timestamp: new Date().toISOString(),
+  }
+  const saved = await appendMessage(negotiationId, message)
+  await updateNegotiation(negotiationId, { status: 'sent' })
+
+  sseManager.emit(negotiationId, 'message', saved)
+  sseManager.emit(negotiationId, 'activity', { text: `Opening message sent to ${supplier} — waiting for reply...` })
+
+  return { done: false }
+}
+
+function buildOpeningMessage(params: {
+  supplier: string
+  product: string
+  quantity: string
+  targetPrice: string
+}): string {
+  const { supplier, product, quantity, targetPrice } = params
+  return `Hi ${supplier}, hope you're doing well!
+
+We're looking to procure ${product} and came across your business. We're interested in placing an order.
+
+Quantity needed: ${quantity}
+Budget target: ${targetPrice}
+
+Could you share your best price for this quantity, along with MOQ, lead time, and payment terms? Looking forward to hearing from you!`
 }

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Remove-Item \"c:\\\\Users\\\\damna\\\\Documents\\\\GitHub\\\\waddle\\\\backend\\\\src\\\\routes\\\\webhook.ts\" -Force)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\damna\\\\Documents\\\\GitHub\\\\waddle\\\\backend\\\\src\\\\services\\\\whatsapp.ts\" -Force)",
+      "Bash(Write-Output \"deleted\")"
+    ]
+  }
+}

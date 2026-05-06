@@ -1,54 +1,70 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
-import { negotiationStore } from '../store/negotiations.js'
-import { sendWhatsAppMessage, buildNegotiationMessage } from '../services/whatsapp.js'
+import { createNegotiation, getNegotiation } from '../db/queries/negotiations.js'
+import { appendMessage } from '../db/queries/messages.js'
+import { queueManager } from '../services/queueManager.js'
+import { sseManager } from '../services/sseManager.js'
 import type { StartNegotiateBody } from '../types.js'
 
 const router = Router()
 
-router.post('/start', async (req: Request<{}, {}, StartNegotiateBody>, res: Response) => {
+router.post('/start', async (req: Request<object, object, StartNegotiateBody>, res: Response) => {
   const { supplier, phone, product, quantity, targetPrice } = req.body
 
   if (!phone?.trim()) {
     res.status(400).json({ error: 'Supplier phone number is required' })
     return
   }
-
-  const negotiation = negotiationStore.create({
-    supplier,
-    phone: phone.trim(),
-    product,
-    quantity,
-    targetPrice,
-  })
+  if (!supplier?.trim() || !product?.trim() || !quantity?.trim() || !targetPrice?.trim()) {
+    res.status(400).json({ error: 'All fields are required' })
+    return
+  }
 
   try {
-    const messageText = buildNegotiationMessage({ supplier, product, quantity, targetPrice })
-    const whatsappMessageId = await sendWhatsAppMessage(phone, messageText)
-
-    // Store opening message so the conversation thread starts immediately
-    negotiationStore.appendMessage(negotiation.id, {
-      role: 'agent',
-      text: messageText,
-      timestamp: new Date().toISOString(),
+    const negotiation = await createNegotiation({
+      supplier: supplier.trim(),
+      phone: phone.trim(),
+      product: product.trim(),
+      quantity: quantity.trim(),
+      targetPrice: targetPrice.trim(),
     })
 
-    negotiationStore.update(negotiation.id, { whatsappMessageId })
+    // Enqueue — the queue manager handles the opening message and all turns
+    await queueManager.enqueue(negotiation.id)
+
     res.json({ id: negotiation.id, status: 'sent' })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    negotiationStore.update(negotiation.id, { status: 'failed' })
     res.status(500).json({ error: message })
   }
 })
 
-router.get('/:id', (req: Request<{ id: string }>, res: Response) => {
-  const negotiation = negotiationStore.get(req.params.id)
+router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
+  const negotiation = await getNegotiation(req.params.id)
   if (!negotiation) {
     res.status(404).json({ error: 'Negotiation not found' })
     return
   }
   res.json(negotiation)
+})
+
+// Server-Sent Events stream — frontend subscribes for real-time updates
+router.get('/:id/events', async (req: Request<{ id: string }>, res: Response) => {
+  const negotiation = await getNegotiation(req.params.id)
+  if (!negotiation) {
+    res.status(404).json({ error: 'Negotiation not found' })
+    return
+  }
+
+  const cleanup = sseManager.addClient(req.params.id, res)
+
+  // Send current state immediately so the client is in sync on connect
+  res.write(`event: status\ndata: ${JSON.stringify({ status: negotiation.status })}\n\n`)
+  for (const msg of negotiation.messages) {
+    res.write(`event: message\ndata: ${JSON.stringify(msg)}\n\n`)
+  }
+
+  req.on('close', cleanup)
 })
 
 export default router
