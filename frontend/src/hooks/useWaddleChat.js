@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { streamMessage } from '../lib/waddleApi'
+import { createSession, getSession, appendSessionMessage } from '../lib/sessionsApi'
 
 const RECOMMENDATIONS_RE = /```recommendations\s*\n([\s\S]*?)\n?```/
 const OPTIONS_RE = /```options\s*\n([\s\S]*?)\n?```/
@@ -59,15 +60,93 @@ My requirements:
 Please find me the best 4 suppliers or vendors for this and present your recommendations.`
 }
 
-export function useWaddleChat() {
-  const [messages, setMessages]    = useState([])
-  const [isLoading, setIsLoading]  = useState(false)
-  const threadId          = useRef(crypto.randomUUID())
-  const lastLocationRef   = useRef(null)
-  const flowRef           = useRef(null)   // { originalQuery, answers: [] }
-  const flowDoneRef       = useRef(false)  // true after first recommendations shown
+function reconstructMessages(dbMessages) {
+  return dbMessages.map(dbMsg => {
+    try {
+      const parsed = JSON.parse(dbMsg.content)
+      const base = { id: dbMsg.id }
+      switch (dbMsg.role) {
+        case 'user':
+          return { ...base, role: 'user', text: parsed.text }
+        case 'assistant':
+          return { ...base, role: 'assistant', text: parsed.text, streaming: false }
+        case 'options':
+          return { ...base, role: 'options', ...parsed, answered: true }
+        case 'recommendations':
+          return { ...base, role: 'recommendations', items: parsed.items }
+        default:
+          return null
+      }
+    } catch {
+      return null
+    }
+  }).filter(Boolean)
+}
 
-  const _streamFromLLM = useCallback(async (llmMessage) => {
+// sessionId: current session UUID from parent, or null for a fresh chat
+// onSessionCreated: called with the new session ID when the first message creates a session
+export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}) {
+  const [messages, setMessages]   = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  const threadId        = useRef(crypto.randomUUID())
+  const lastLocationRef = useRef(null)
+  const flowRef         = useRef(null)
+  const flowDoneRef     = useRef(false)
+
+  // Tracks which session is actually loaded in state right now.
+  // Updated immediately when we create a new session so persistence calls
+  // can use the new ID before the parent prop re-renders.
+  const activeSessionRef = useRef(null)
+
+  // Keep activeSessionRef in sync with the incoming prop
+  useEffect(() => {
+    activeSessionRef.current = sessionId
+  }, [sessionId])
+
+  // When the sessionId prop changes, load (or reset) the chat
+  useEffect(() => {
+    if (sessionId === null) {
+      setMessages([])
+      flowRef.current = null
+      flowDoneRef.current = false
+      threadId.current = crypto.randomUUID()
+      return
+    }
+
+    getSession(sessionId).then(({ session, messages: dbMessages }) => {
+      threadId.current = session.threadId
+      const restored = reconstructMessages(dbMessages)
+      setMessages(restored)
+      flowDoneRef.current = restored.some(m => m.role === 'recommendations')
+      flowRef.current = null
+    }).catch(err => {
+      console.error('[session] failed to load:', err)
+    })
+  }, [sessionId])
+
+  // Persist a message to the current session (fire-and-forget)
+  function persist(role, contentObj, overrideSid) {
+    const sid = overrideSid ?? activeSessionRef.current
+    if (!sid) return
+    appendSessionMessage(sid, role, JSON.stringify(contentObj)).catch(err => {
+      console.error('[session] persist failed:', err)
+    })
+  }
+
+  // Creates a session on the first message if none exists yet; returns the session ID
+  async function ensureSession(firstMessageText) {
+    if (activeSessionRef.current) return activeSessionRef.current
+    const title = firstMessageText.length > 50
+      ? firstMessageText.slice(0, 50) + '…'
+      : firstMessageText
+    const session = await createSession(title, threadId.current)
+    activeSessionRef.current = session.id
+    onSessionCreated?.(session.id)
+    return session.id
+  }
+
+  const _streamFromLLM = useCallback(async (llmMessage, sid) => {
     const assistantId = crypto.randomUUID()
     setMessages(prev => [
       ...prev,
@@ -92,28 +171,31 @@ export function useWaddleChat() {
           const assistantMsg = withDone.find(m => m.id === assistantId)
           if (!assistantMsg) return withDone
 
+          const activeSid = sid ?? activeSessionRef.current
+
           // Recommendations block
           const recs = parseRecommendations(assistantMsg.text)
           if (recs) {
             const cleanText = assistantMsg.text.replace(RECOMMENDATIONS_RE, '').trim()
             flowDoneRef.current = true
             flowRef.current = null
+            if (activeSid) {
+              if (cleanText) persist('assistant', { text: cleanText }, activeSid)
+              persist('recommendations', { items: recs }, activeSid)
+            }
             return [
-              ...withDone.map(m =>
-                m.id === assistantId ? { ...m, text: cleanText } : m
-              ),
+              ...withDone.map(m => m.id === assistantId ? { ...m, text: cleanText } : m),
               { id: crypto.randomUUID(), role: 'recommendations', items: recs },
             ]
           }
 
-          // LLM-driven options block (follow-up clarifications)
+          // LLM-driven options block
           const opts = parseOptionsBlock(assistantMsg.text)
           if (opts) {
             const cleanText = assistantMsg.text.replace(OPTIONS_RE, '').trim()
+            if (activeSid && cleanText) persist('assistant', { text: cleanText }, activeSid)
             return [
-              ...withDone.map(m =>
-                m.id === assistantId ? { ...m, text: cleanText } : m
-              ),
+              ...withDone.map(m => m.id === assistantId ? { ...m, text: cleanText } : m),
               {
                 id: crypto.randomUUID(),
                 role: 'options',
@@ -125,6 +207,8 @@ export function useWaddleChat() {
             ]
           }
 
+          // Plain assistant message
+          if (activeSid) persist('assistant', { text: assistantMsg.text }, activeSid)
           flowRef.current = null
           return withDone
         })
@@ -147,14 +231,15 @@ export function useWaddleChat() {
   const send = useCallback(async (userText, locationContext) => {
     if (!userText.trim() || isLoading) return
 
-    if (locationContext !== undefined) {
-      lastLocationRef.current = locationContext
-    }
+    if (locationContext !== undefined) lastLocationRef.current = locationContext
+
+    const sid = await ensureSession(userText)
 
     setMessages(prev => [
       ...prev,
       { id: crypto.randomUUID(), role: 'user', text: userText },
     ])
+    persist('user', { text: userText }, sid)
 
     // First message — start 4-question procurement flow
     if (!flowRef.current && !flowDoneRef.current) {
@@ -173,20 +258,30 @@ export function useWaddleChat() {
       return
     }
 
-    // Follow-up message after flow — direct LLM call
-    await _streamFromLLM(userText)
+    // Follow-up after recommendations — direct LLM call
+    await _streamFromLLM(userText, sid)
   }, [isLoading, _streamFromLLM])
 
   const answer = useCallback((questionId, choiceText) => {
     if (!flowRef.current) return
 
-    setMessages(prev =>
-      prev.map(m =>
+    // Mark the answered question in state and persist it
+    setMessages(prev => {
+      const optMsg = prev.find(m => m.id === questionId)
+      if (optMsg) {
+        persist('options', {
+          question: optMsg.question,
+          choices: optMsg.choices,
+          answered: true,
+          selectedChoice: choiceText,
+        })
+      }
+      return prev.map(m =>
         m.id === questionId
           ? { ...m, answered: true, selectedChoice: choiceText }
           : m
       )
-    )
+    })
 
     flowRef.current.answers.push(choiceText)
     const { answers } = flowRef.current
@@ -205,13 +300,12 @@ export function useWaddleChat() {
         },
       ])
     } else {
-      // All 4 answered — compile and send to LLM
       const compiled = compileProcurementMessage(
         flowRef.current.originalQuery,
         answers,
-        lastLocationRef.current
+        lastLocationRef.current,
       )
-      _streamFromLLM(compiled)
+      _streamFromLLM(compiled, activeSessionRef.current)
     }
   }, [_streamFromLLM])
 
@@ -225,5 +319,14 @@ export function useWaddleChat() {
     setNegotiationItem(null)
   }, [])
 
-  return { messages, isLoading, send, answer, startNegotiate, closeNegotiation, negotiationItem }
+  return {
+    messages,
+    isLoading,
+    send,
+    answer,
+    startNegotiate,
+    closeNegotiation,
+    negotiationItem,
+    currentSessionId: activeSessionRef.current,
+  }
 }

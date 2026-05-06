@@ -1,10 +1,10 @@
 const BASE = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3001'
 
-export async function startNegotiation({ supplier, phone, product, quantity, targetPrice }) {
+export async function startNegotiation({ supplier, phone, product, quantity, targetPrice, sessionId }) {
   const res = await fetch(`${BASE}/api/negotiate/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ supplier, phone, product, quantity, targetPrice }),
+    body: JSON.stringify({ supplier, phone, product, quantity, targetPrice, sessionId }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'Failed to start negotiation')

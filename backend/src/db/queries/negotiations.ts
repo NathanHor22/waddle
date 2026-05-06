@@ -30,14 +30,14 @@ function rowToMessage(row: Record<string, unknown>): ConversationMessage {
 }
 
 export async function createNegotiation(
-  data: Pick<Negotiation, 'supplier' | 'phone' | 'product' | 'quantity' | 'targetPrice'>,
+  data: Pick<Negotiation, 'supplier' | 'phone' | 'product' | 'quantity' | 'targetPrice'> & { sessionId?: string },
 ): Promise<Negotiation> {
   const id = randomUUID()
   const { rows } = await pool.query(
-    `INSERT INTO negotiations (id, supplier, phone, product, quantity, target_price)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO negotiations (id, supplier, phone, product, quantity, target_price, session_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-    [id, data.supplier, normalisePhone(data.phone), data.product, data.quantity, data.targetPrice],
+    [id, data.supplier, normalisePhone(data.phone), data.product, data.quantity, data.targetPrice, data.sessionId ?? null],
   )
   return rowToNegotiation(rows[0], [])
 }

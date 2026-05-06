@@ -36,6 +36,7 @@ export interface StartNegotiateBody {
   product: string
   quantity: string
   targetPrice: string
+  sessionId?: string
 }
 
 // ── Queue ──────────────────────────────────────────────────────────────────
@@ -77,6 +78,26 @@ export interface SSEPayload {
   activity: { text: string }
   typing: { isTyping: boolean }
   extraction: { price?: string; moq?: string; leadTime?: string }
+}
+
+// ── Sessions ───────────────────────────────────────────────────────────────
+
+export interface Session {
+  id: string
+  title: string
+  threadId: string
+  createdAt: string
+  updatedAt: string
+  messageCount?: number
+  negotiationCount?: number
+}
+
+export interface SessionMessage {
+  id: string
+  sessionId: string
+  role: 'user' | 'assistant' | 'options' | 'recommendations'
+  content: string
+  createdAt: string
 }
 
 // ── WhatsApp connection ────────────────────────────────────────────────────

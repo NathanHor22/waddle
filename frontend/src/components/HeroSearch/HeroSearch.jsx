@@ -7,9 +7,10 @@ import { NegotiateModal } from '../NegotiateModal/NegotiateModal'
 import { exportRecommendationsToExcel } from '../../lib/exportToExcel'
 import './HeroSearch.css'
 
-export function HeroSearch() {
+export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
   const { location } = useLocation()
-  const { messages, isLoading, send, answer, startNegotiate, closeNegotiation, negotiationItem } = useWaddleChat()
+  const { messages, isLoading, send, answer, startNegotiate, closeNegotiation, negotiationItem, currentSessionId } =
+    useWaddleChat({ sessionId, onSessionCreated })
   const [query, setQuery] = useState('')
   const textareaRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -162,7 +163,11 @@ export function HeroSearch() {
         </form>
       </div>
       {negotiationItem && (
-        <NegotiateModal item={negotiationItem} onClose={closeNegotiation} />
+        <NegotiateModal
+          item={negotiationItem}
+          sessionId={currentSessionId}
+          onClose={closeNegotiation}
+        />
       )}
     </div>
   )

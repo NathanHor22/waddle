@@ -6,7 +6,7 @@ import './NegotiateModal.css'
 
 const TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
 
-export function NegotiateModal({ item, onClose }) {
+export function NegotiateModal({ item, sessionId, onClose }) {
   const { company, phone, price } = item
 
   const { isConnected } = useWhatsAppStatus()
@@ -90,6 +90,7 @@ export function NegotiateModal({ item, onClose }) {
         product: product.trim(),
         quantity: quantity.trim(),
         targetPrice: targetPrice.trim(),
+        sessionId: sessionId ?? undefined,
       })
       setStep('negotiating')
       setActivity('Connecting to WhatsApp...')

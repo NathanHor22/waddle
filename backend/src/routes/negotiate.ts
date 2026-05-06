@@ -9,7 +9,7 @@ import type { StartNegotiateBody } from '../types.js'
 const router = Router()
 
 router.post('/start', async (req: Request<object, object, StartNegotiateBody>, res: Response) => {
-  const { supplier, phone, product, quantity, targetPrice } = req.body
+  const { supplier, phone, product, quantity, targetPrice, sessionId } = req.body
 
   if (!phone?.trim()) {
     res.status(400).json({ error: 'Supplier phone number is required' })
@@ -27,6 +27,7 @@ router.post('/start', async (req: Request<object, object, StartNegotiateBody>, r
       product: product.trim(),
       quantity: quantity.trim(),
       targetPrice: targetPrice.trim(),
+      sessionId: sessionId?.trim() || undefined,
     })
 
     // Enqueue — the queue manager handles the opening message and all turns
