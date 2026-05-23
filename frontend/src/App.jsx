@@ -35,6 +35,7 @@ export default function App() {
   function handleSignOut() {
     localStorage.removeItem('waddle_token')
     setUser(null)
+    setActiveSessionId(null)
   }
 
   return (
