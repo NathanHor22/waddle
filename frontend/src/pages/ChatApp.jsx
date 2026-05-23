@@ -9,6 +9,8 @@ export function ChatApp({ user, onSignIn, onSignOut }) {
   const [activeSessionId, setActiveSessionId] = useState(null)
   const navigate = useNavigate()
 
+  function handleNewSession() { setActiveSessionId(null) }
+
   return (
     <LocationProvider>
       <Navbar
