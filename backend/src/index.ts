@@ -53,15 +53,16 @@ async function start(): Promise<void> {
     console.log(`[server] Waddle backend → http://localhost:${PORT}`)
   })
 
-  // 3. Initialise WhatsApp — route incoming messages to the queue manager
+  // 3. Initialise WhatsApp — non-fatal so a Baileys error never takes the HTTP server down
   whatsAppService.onMessage((phone, text) => {
     queueManager.onIncomingReply(phone, text, new Date().toISOString()).catch(err => {
       console.error('[server] incoming message error:', err)
     })
   })
 
-  await whatsAppService.initialize()
-  console.log('[whatsapp] initialising...')
+  whatsAppService.initialize()
+    .then(() => console.log('[whatsapp] initialising...'))
+    .catch(err => console.error('[whatsapp] startup error (non-fatal):', err))
 
   // 4. Recover any negotiations that were mid-flight before the last restart
   await queueManager.recover()
