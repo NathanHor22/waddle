@@ -39,21 +39,22 @@ export function LandingPage({ user, onSignIn }) {
 
       {/* ── Hero ── */}
       <section className="landing-hero">
-        <div className="landing-hero__eyebrow">AI Procurement for SMEs in Malaysia and Singapore</div>
+        <div className="landing-hero__eyebrow">Agentic AI Procurement Platform for Malaysian and Singaporean SMEs</div>
         <h1 className="landing-hero__headline">
-          Procurement,<br />
-          <span className="landing-hero__accent">without the hassle.</span>
+          Your AI procurement agent,<br />
+          <span className="landing-hero__accent">working while you grow.</span>
         </h1>
         <p className="landing-hero__sub">
-          Find suppliers, compare prices, and get the best deal in minutes.
-          Or hand it off completely and check back when it is done.
+          Waddle's agentic AI autonomously contacts suppliers, negotiates prices,
+          and closes deals via WhatsApp or email. Spend more time improving your
+          business and leave procurement to us.
         </p>
         <div className="landing-hero__ctas">
-          <button className="landing-btn landing-btn--primary" onClick={goToApp}>
-            Start searching <ArrowIcon />
+          <button className="landing-btn landing-btn--primary" onClick={goToWaddleForMe}>
+            Let Waddle negotiate <ArrowIcon />
           </button>
-          <button className="landing-btn landing-btn--ghost" onClick={goToWaddleForMe}>
-            Let Waddle handle it
+          <button className="landing-btn landing-btn--ghost" onClick={goToApp}>
+            Search suppliers first
           </button>
         </div>
         <div className="landing-hero__markets">
@@ -74,8 +75,9 @@ export function LandingPage({ user, onSignIn }) {
             </div>
             <h2 className="landing-card__title">Search and Compare</h2>
             <p className="landing-card__desc">
-              Tell Waddle what you need. Get ranked supplier recommendations
-              with prices and contacts instantly.
+              Not sure who to contact yet? Tell Waddle what you need and get
+              ranked supplier recommendations with prices and contacts in minutes.
+              Then hand it off to Waddle for Me to negotiate for you.
             </p>
             <ul className="landing-card__features">
               <li><CheckIcon /> AI-powered supplier search</li>
@@ -85,7 +87,7 @@ export function LandingPage({ user, onSignIn }) {
               <li><CheckIcon /> Follow-up Q&amp;A with Waddle</li>
             </ul>
             <button className="landing-btn landing-btn--primary landing-btn--full" onClick={goToApp}>
-              Start searching <ArrowIcon />
+              Search suppliers <ArrowIcon />
             </button>
           </div>
 
@@ -97,15 +99,16 @@ export function LandingPage({ user, onSignIn }) {
             </div>
             <h2 className="landing-card__title">Waddle for Me</h2>
             <p className="landing-card__desc">
-              Already know who to contact? Give us the supplier's number or email
-              and walk away. We negotiate the best deal and report back.
+              Our agentic AI autonomously contacts your supplier via WhatsApp or
+              email, negotiates the best price on your behalf, and delivers a full
+              report. You focus on your business. We handle procurement.
             </p>
             <ul className="landing-card__features">
-              <li><CheckIcon /> WhatsApp and email negotiation</li>
-              <li><CheckIcon /> Autonomous AI agent</li>
+              <li><CheckIcon /> Agentic AI negotiates autonomously</li>
+              <li><CheckIcon /> Works via WhatsApp or email</li>
+              <li><CheckIcon /> Tailored to your communication channel</li>
               <li><CheckIcon /> 6 to 8 hour turnaround</li>
-              <li><CheckIcon /> Full negotiation report</li>
-              <li><CheckIcon /> Zero effort required</li>
+              <li><CheckIcon /> Full negotiation report delivered</li>
             </ul>
             <button className="landing-btn landing-btn--teal landing-btn--full" onClick={goToWaddleForMe}>
               Let Waddle handle it <ArrowIcon />
@@ -158,22 +161,22 @@ export function LandingPage({ user, onSignIn }) {
               <div className="landing-step">
                 <span className="landing-step__num landing-step__num--teal">1</span>
                 <div>
-                  <strong>Enter the supplier's contact</strong>
-                  <p>Phone number or email, plus what you want to procure and your target price.</p>
+                  <strong>Give us the supplier's contact</strong>
+                  <p>WhatsApp number or email, what you need, and your target price. That is all we need.</p>
                 </div>
               </div>
               <div className="landing-step">
                 <span className="landing-step__num landing-step__num--teal">2</span>
                 <div>
-                  <strong>Connect WhatsApp or email</strong>
-                  <p>Waddle uses your connected channel to reach the supplier on your behalf.</p>
+                  <strong>Our agentic AI takes over</strong>
+                  <p>Waddle autonomously reaches out via your chosen channel, negotiates pricing, and handles all follow-ups.</p>
                 </div>
               </div>
               <div className="landing-step">
                 <span className="landing-step__num landing-step__num--teal">3</span>
                 <div>
-                  <strong>Check back in 6 to 8 hours</strong>
-                  <p>We negotiate, follow up, and deliver a full report on what was agreed.</p>
+                  <strong>Get your report. Get back to work.</strong>
+                  <p>Within 6 to 8 hours, receive a full negotiation report with what was agreed. Zero effort from you.</p>
                 </div>
               </div>
             </div>
@@ -188,7 +191,7 @@ export function LandingPage({ user, onSignIn }) {
         <div className="landing-faq__list">
           <details className="landing-faq__item">
             <summary className="landing-faq__q">What is Waddle?</summary>
-            <p className="landing-faq__a">Waddle is an AI procurement tool built for SMEs in Malaysia and Singapore. It helps businesses find suppliers, compare prices, and negotiate deals. Through its Waddle for Me service, it can handle the full negotiation autonomously via WhatsApp or email.</p>
+            <p className="landing-faq__a">Waddle is an agentic AI procurement platform built for SMEs in Malaysia and Singapore. It autonomously contacts suppliers, negotiates prices, and closes deals via WhatsApp or email on your behalf, so you can spend more time growing your business and less time chasing quotes.</p>
           </details>
           <details className="landing-faq__item">
             <summary className="landing-faq__q">How does Waddle find suppliers?</summary>
@@ -196,7 +199,7 @@ export function LandingPage({ user, onSignIn }) {
           </details>
           <details className="landing-faq__item">
             <summary className="landing-faq__q">What is the Waddle for Me service?</summary>
-            <p className="landing-faq__a">Waddle for Me is a done-for-you negotiation service. You provide a supplier's phone number or email and your procurement requirements. Waddle's AI agent contacts the supplier, negotiates the best price on your behalf, and delivers a full report within 6 to 8 hours.</p>
+            <p className="landing-faq__a">Waddle for Me uses agentic AI to autonomously contact and negotiate prices with suppliers on behalf of SMEs. You provide the supplier's WhatsApp number or email, your procurement requirements, and your target price. Waddle's AI agent reaches out through your preferred channel, conducts the full negotiation autonomously, and delivers a detailed report within 6 to 8 hours. This lets you spend more time improving your business while we handle procurement.</p>
           </details>
           <details className="landing-faq__item">
             <summary className="landing-faq__q">Who built Waddle?</summary>
@@ -212,10 +215,11 @@ export function LandingPage({ user, onSignIn }) {
       {/* ── Final CTA ── */}
       <section className="landing-cta" aria-label="Get started with Waddle">
         <h2 className="landing-cta__heading">
-          Stop wasting time on procurement.
+          Focus on your business.<br />Leave procurement to us.
         </h2>
         <p className="landing-cta__sub">
-          Join SMEs in Malaysia and Singapore who let Waddle do the heavy lifting.
+          Join SMEs in Malaysia and Singapore using agentic AI to negotiate better deals,
+          faster, via WhatsApp and email.
         </p>
         <div className="landing-cta__btns">
           {user ? (
