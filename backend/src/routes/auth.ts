@@ -51,7 +51,7 @@ router.get('/google/callback',
       { expiresIn: '30d' },
     )
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173'
-    res.redirect(`${frontendUrl}?token=${encodeURIComponent(token)}`)
+    res.redirect(`${frontendUrl}/app?token=${encodeURIComponent(token)}`)
   },
 )
 

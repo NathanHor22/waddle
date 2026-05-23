@@ -1,32 +1,26 @@
 import { useState, useEffect } from 'react'
-import { LocationProvider } from './context/LocationContext'
-import { Navbar } from './components/Navbar/Navbar'
-import { HeroSearch } from './components/HeroSearch/HeroSearch'
-import { SessionsSidebar } from './components/SessionsSidebar/SessionsSidebar'
+import { Routes, Route } from 'react-router-dom'
+import { LandingPage } from './pages/LandingPage'
+import { ChatApp } from './pages/ChatApp'
+import { WaddleForMe } from './pages/WaddleForMe'
 import { getMe } from './lib/authApi'
 import './index.css'
 
 export default function App() {
-  const [activeSessionId, setActiveSessionId] = useState(null)
   const [user, setUser] = useState(null)
 
-  // Restore auth on mount and handle /auth/callback token
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
     if (token) {
       localStorage.setItem('waddle_token', token)
-      window.history.replaceState({}, '', '/')
+      window.history.replaceState({}, '', window.location.pathname)
     }
 
     getMe()
       .then(setUser)
       .catch(() => setUser(null))
   }, [])
-
-  function handleNewSession() {
-    setActiveSessionId(null)
-  }
 
   function handleSignIn() {
     window.location.href = '/api/auth/google'
@@ -35,32 +29,22 @@ export default function App() {
   function handleSignOut() {
     localStorage.removeItem('waddle_token')
     setUser(null)
-    setActiveSessionId(null)
   }
 
   return (
-    <LocationProvider>
-      <Navbar
-        onLogoClick={handleNewSession}
-        user={user}
-        onSignIn={handleSignIn}
-        onSignOut={handleSignOut}
+    <Routes>
+      <Route
+        path="/"
+        element={<LandingPage user={user} onSignIn={handleSignIn} />}
       />
-      <div className="app-layout">
-        <SessionsSidebar
-          activeSessionId={activeSessionId}
-          onSelectSession={setActiveSessionId}
-          onNewSession={handleNewSession}
-          user={user}
-          onSignIn={handleSignIn}
-        />
-        <main className="app-main">
-          <HeroSearch
-            sessionId={activeSessionId}
-            onSessionCreated={setActiveSessionId}
-          />
-        </main>
-      </div>
-    </LocationProvider>
+      <Route
+        path="/app"
+        element={<ChatApp user={user} onSignIn={handleSignIn} onSignOut={handleSignOut} />}
+      />
+      <Route
+        path="/waddle-for-me"
+        element={<WaddleForMe user={user} onSignIn={handleSignIn} />}
+      />
+    </Routes>
   )
 }

@@ -13,6 +13,7 @@ import whatsappRouter from './routes/whatsapp.js'
 import sessionsRouter from './routes/sessions.js'
 import emailRouter from './routes/email.js'
 import authRouter from './routes/auth.js'
+import waddleForMeRouter from './routes/waddleForMe.js'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 3001)
@@ -35,6 +36,7 @@ app.use('/api/sessions', sessionsRouter)
 app.use('/api/email', emailRouter)
 app.use('/api/negotiate', negotiateRouter)
 app.use('/api/whatsapp', whatsappRouter)
+app.use('/api/waddle-for-me', waddleForMeRouter)
 
 app.use(express.static(FRONTEND_DIST))
 app.get('*', (_req, res) => {

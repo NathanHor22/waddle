@@ -1,3 +1,5 @@
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+
 function getToken() {
   return localStorage.getItem('waddle_token')
 }
@@ -8,5 +10,5 @@ export async function apiFetch(url, options = {}) {
     ...options.headers,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
-  return fetch(url, { ...options, headers })
+  return fetch(`${API_BASE}${url}`, { ...options, headers })
 }
