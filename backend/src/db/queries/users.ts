@@ -1,4 +1,4 @@
-import { db } from '../client.js'
+import { pool as db } from '../client.js'
 
 export interface User {
   id: string

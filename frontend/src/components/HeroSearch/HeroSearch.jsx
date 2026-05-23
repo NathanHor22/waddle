@@ -123,12 +123,14 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
               )
             }
 
-            // assistant
+            // assistant — hide the raw streaming output while the search loader is active
+            if (msg.streaming && isSearching) return null
+
             return (
               <div key={msg.id} className={`chat-msg chat-msg--assistant${msg.error ? ' chat-msg--error' : ''}`}>
                 <div className="chat-msg__text chat-msg__text--md">
                   {msg.text && <ReactMarkdown>{msg.text}</ReactMarkdown>}
-                  {msg.streaming && !isSearching && (
+                  {msg.streaming && (
                     <span className="chat-cursor" aria-hidden="true" />
                   )}
                 </div>
