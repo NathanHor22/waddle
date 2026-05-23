@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { LocationProvider } from '../context/LocationContext'
 import { Navbar } from '../components/Navbar/Navbar'
 import { HeroSearch } from '../components/HeroSearch/HeroSearch'
@@ -6,15 +7,12 @@ import { SessionsSidebar } from '../components/SessionsSidebar/SessionsSidebar'
 
 export function ChatApp({ user, onSignIn, onSignOut }) {
   const [activeSessionId, setActiveSessionId] = useState(null)
-
-  function handleNewSession() {
-    setActiveSessionId(null)
-  }
+  const navigate = useNavigate()
 
   return (
     <LocationProvider>
       <Navbar
-        onLogoClick={handleNewSession}
+        onLogoClick={() => navigate('/')}
         user={user}
         onSignIn={onSignIn}
         onSignOut={onSignOut}
