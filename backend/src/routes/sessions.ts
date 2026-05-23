@@ -7,12 +7,15 @@ import {
   appendSessionMessage,
   deleteSession,
 } from '../db/queries/sessions.js'
+import { optionalAuth } from '../middleware/auth.js'
 import type { SessionMessage } from '../types.js'
 
 const router = Router()
 
-router.get('/', async (_req: Request, res: Response) => {
-  const sessions = await getSessions()
+router.use(optionalAuth)
+
+router.get('/', async (req: Request, res: Response) => {
+  const sessions = await getSessions(req.user?.id)
   res.json(sessions)
 })
 
@@ -22,12 +25,12 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'title and threadId are required' })
     return
   }
-  const session = await createSession(title.trim(), threadId.trim())
+  const session = await createSession(title.trim(), threadId.trim(), req.user?.id)
   res.json(session)
 })
 
 router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  const result = await getSession(req.params.id)
+  const result = await getSession(req.params.id, req.user?.id)
   if (!result) {
     res.status(404).json({ error: 'Session not found' })
     return
@@ -46,7 +49,7 @@ router.post('/:id/messages', async (req: Request<{ id: string }>, res: Response)
 })
 
 router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  await deleteSession(req.params.id)
+  await deleteSession(req.params.id, req.user?.id)
   res.json({ ok: true })
 })
 

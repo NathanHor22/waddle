@@ -24,16 +24,16 @@ function rowToSessionMessage(row: Record<string, unknown>): SessionMessage {
   }
 }
 
-export async function createSession(title: string, threadId: string): Promise<Session> {
+export async function createSession(title: string, threadId: string, userId?: string): Promise<Session> {
   const id = randomUUID()
   const { rows } = await pool.query(
-    `INSERT INTO sessions (id, title, thread_id) VALUES ($1, $2, $3) RETURNING *`,
-    [id, title, threadId],
+    `INSERT INTO sessions (id, title, thread_id, user_id) VALUES ($1, $2, $3, $4) RETURNING *`,
+    [id, title, threadId, userId ?? null],
   )
   return rowToSession(rows[0])
 }
 
-export async function getSessions(): Promise<Session[]> {
+export async function getSessions(userId?: string): Promise<Session[]> {
   const { rows } = await pool.query(`
     SELECT
       s.*,
@@ -42,18 +42,20 @@ export async function getSessions(): Promise<Session[]> {
     FROM sessions s
     LEFT JOIN session_messages sm ON sm.session_id = s.id
     LEFT JOIN negotiations      n  ON n.session_id  = s.id
+    WHERE s.user_id = $1
     GROUP BY s.id
     ORDER BY s.updated_at DESC
-  `)
+  `, [userId ?? null])
   return rows.map(rowToSession)
 }
 
 export async function getSession(
   id: string,
+  userId?: string,
 ): Promise<{ session: Session; messages: SessionMessage[] } | null> {
   const { rows: sessionRows } = await pool.query(
-    'SELECT * FROM sessions WHERE id = $1',
-    [id],
+    'SELECT * FROM sessions WHERE id = $1 AND user_id = $2',
+    [id, userId ?? null],
   )
   if (sessionRows.length === 0) return null
 
@@ -81,6 +83,6 @@ export async function appendSessionMessage(
   return rowToSessionMessage(rows[0])
 }
 
-export async function deleteSession(id: string): Promise<void> {
-  await pool.query('DELETE FROM sessions WHERE id = $1', [id])
+export async function deleteSession(id: string, userId?: string): Promise<void> {
+  await pool.query('DELETE FROM sessions WHERE id = $1 AND user_id = $2', [id, userId ?? null])
 }

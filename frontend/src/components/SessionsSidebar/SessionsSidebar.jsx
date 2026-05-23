@@ -2,17 +2,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { getSessions, deleteSession } from '../../lib/sessionsApi'
 import './SessionsSidebar.css'
 
-export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession }) {
+export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession, user, onSignIn }) {
   const [sessions, setSessions]   = useState([])
-  const [loading, setLoading]     = useState(true)
+  const [loading, setLoading]     = useState(false)
   const [dismissing, setDismissing] = useState(new Set())
 
   const load = useCallback(() => {
+    if (!user) return
+    setLoading(true)
     getSessions()
       .then(setSessions)
       .catch(err => console.error('[sidebar] load failed:', err))
       .finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   useEffect(() => { load() }, [load])
 
@@ -47,13 +49,21 @@ export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession
       </div>
 
       <div className="sessions-sidebar__list">
-        {loading && (
+        {!user && (
+          <div className="sessions-sidebar__signin">
+            <p>Sign in to save and revisit your procurement history.</p>
+            <button className="sessions-sidebar__signin-btn" onClick={onSignIn}>
+              Sign in with Google
+            </button>
+          </div>
+        )}
+        {user && loading && (
           <p className="sessions-sidebar__empty">Loading…</p>
         )}
-        {!loading && sessions.length === 0 && (
+        {user && !loading && sessions.length === 0 && (
           <p className="sessions-sidebar__empty">No procurements yet.<br />Start a search above.</p>
         )}
-        {sessions.map(session => (
+        {user && sessions.map(session => (
           <button
             key={session.id}
             data-dismissing={dismissing.has(session.id) ? 'true' : undefined}

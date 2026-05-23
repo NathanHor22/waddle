@@ -50,6 +50,8 @@ export default function App() {
           activeSessionId={activeSessionId}
           onSelectSession={setActiveSessionId}
           onNewSession={handleNewSession}
+          user={user}
+          onSignIn={handleSignIn}
         />
         <main className="app-main">
           <HeroSearch
