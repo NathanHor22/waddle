@@ -16,7 +16,7 @@ export function LandingPage({ user, onSignIn }) {
       {/* ── Navbar ── */}
       <header className="landing-nav">
         <div className="landing-nav__logo">
-          <img src="/logo.jpg" alt="Waddle" className="landing-nav__logo-img" />
+          <img src="/logo.jpg" alt="Waddle AI procurement tool" className="landing-nav__logo-img" />
           <span className="landing-nav__logo-name">Waddle</span>
         </div>
         <div className="landing-nav__right">
@@ -39,14 +39,14 @@ export function LandingPage({ user, onSignIn }) {
 
       {/* ── Hero ── */}
       <section className="landing-hero">
-        <div className="landing-hero__eyebrow">Procurement AI for SMEs</div>
+        <div className="landing-hero__eyebrow">AI Procurement for SMEs in Malaysia and Singapore</div>
         <h1 className="landing-hero__headline">
           Procurement,<br />
           <span className="landing-hero__accent">without the hassle.</span>
         </h1>
         <p className="landing-hero__sub">
-          Find suppliers, compare prices, and negotiate the best deal —
-          in minutes or while you sleep.
+          Find suppliers, compare prices, and get the best deal in minutes.
+          Or hand it off completely and check back when it is done.
         </p>
         <div className="landing-hero__ctas">
           <button className="landing-btn landing-btn--primary" onClick={goToApp}>
@@ -64,7 +64,7 @@ export function LandingPage({ user, onSignIn }) {
       </section>
 
       {/* ── Two paths ── */}
-      <section className="landing-paths">
+      <section className="landing-paths" aria-label="How to use Waddle">
         <div className="landing-paths__grid">
 
           {/* Self-serve */}
@@ -72,14 +72,14 @@ export function LandingPage({ user, onSignIn }) {
             <div className="landing-card__icon landing-card__icon--blue">
               <SearchIcon />
             </div>
-            <h2 className="landing-card__title">Search &amp; Compare</h2>
+            <h2 className="landing-card__title">Search and Compare</h2>
             <p className="landing-card__desc">
               Tell Waddle what you need. Get ranked supplier recommendations
-              with prices and contacts — instantly.
+              with prices and contacts instantly.
             </p>
             <ul className="landing-card__features">
               <li><CheckIcon /> AI-powered supplier search</li>
-              <li><CheckIcon /> Price &amp; contact comparison</li>
+              <li><CheckIcon /> Price and contact comparison</li>
               <li><CheckIcon /> 4 ranked recommendations</li>
               <li><CheckIcon /> Export to Excel</li>
               <li><CheckIcon /> Follow-up Q&amp;A with Waddle</li>
@@ -98,12 +98,12 @@ export function LandingPage({ user, onSignIn }) {
             <h2 className="landing-card__title">Waddle for Me</h2>
             <p className="landing-card__desc">
               Already know who to contact? Give us the supplier's number or email
-              and walk away. We'll negotiate the best deal and report back.
+              and walk away. We negotiate the best deal and report back.
             </p>
             <ul className="landing-card__features">
-              <li><CheckIcon /> WhatsApp &amp; email negotiation</li>
+              <li><CheckIcon /> WhatsApp and email negotiation</li>
               <li><CheckIcon /> Autonomous AI agent</li>
-              <li><CheckIcon /> 6–8 hour turnaround</li>
+              <li><CheckIcon /> 6 to 8 hour turnaround</li>
               <li><CheckIcon /> Full negotiation report</li>
               <li><CheckIcon /> Zero effort required</li>
             </ul>
@@ -119,18 +119,18 @@ export function LandingPage({ user, onSignIn }) {
       </section>
 
       {/* ── How it works ── */}
-      <section className="landing-how">
+      <section className="landing-how" aria-label="How Waddle works">
         <h2 className="landing-how__heading">How it works</h2>
         <div className="landing-how__grid">
 
           <div className="landing-how__col">
-            <h3 className="landing-how__col-title">Search &amp; Compare</h3>
+            <h3 className="landing-how__col-title">Search and Compare</h3>
             <div className="landing-steps">
               <div className="landing-step">
                 <span className="landing-step__num">1</span>
                 <div>
                   <strong>Describe what you need</strong>
-                  <p>Product, quantity, budget, and timeline — Waddle asks the right questions.</p>
+                  <p>Product, quantity, budget, and timeline. Waddle asks the right questions.</p>
                 </div>
               </div>
               <div className="landing-step">
@@ -150,7 +150,7 @@ export function LandingPage({ user, onSignIn }) {
             </div>
           </div>
 
-          <div className="landing-how__divider" />
+          <div className="landing-how__divider" role="separator" />
 
           <div className="landing-how__col">
             <h3 className="landing-how__col-title">Waddle for Me</h3>
@@ -172,7 +172,7 @@ export function LandingPage({ user, onSignIn }) {
               <div className="landing-step">
                 <span className="landing-step__num landing-step__num--teal">3</span>
                 <div>
-                  <strong>Check back in 6–8 hours</strong>
+                  <strong>Check back in 6 to 8 hours</strong>
                   <p>We negotiate, follow up, and deliver a full report on what was agreed.</p>
                 </div>
               </div>
@@ -182,8 +182,35 @@ export function LandingPage({ user, onSignIn }) {
         </div>
       </section>
 
+      {/* ── FAQ ── */}
+      <section className="landing-faq" aria-label="Frequently asked questions about Waddle">
+        <h2 className="landing-faq__heading">Frequently asked questions</h2>
+        <div className="landing-faq__list">
+          <details className="landing-faq__item">
+            <summary className="landing-faq__q">What is Waddle?</summary>
+            <p className="landing-faq__a">Waddle is an AI procurement tool built for SMEs in Malaysia and Singapore. It helps businesses find suppliers, compare prices, and negotiate deals. Through its Waddle for Me service, it can handle the full negotiation autonomously via WhatsApp or email.</p>
+          </details>
+          <details className="landing-faq__item">
+            <summary className="landing-faq__q">How does Waddle find suppliers?</summary>
+            <p className="landing-faq__a">Waddle uses AI to search curated supplier directories across Malaysia and Singapore. Describe what you need and it returns up to 4 ranked supplier recommendations with prices and contact details within minutes.</p>
+          </details>
+          <details className="landing-faq__item">
+            <summary className="landing-faq__q">What is the Waddle for Me service?</summary>
+            <p className="landing-faq__a">Waddle for Me is a done-for-you negotiation service. You provide a supplier's phone number or email and your procurement requirements. Waddle's AI agent contacts the supplier, negotiates the best price on your behalf, and delivers a full report within 6 to 8 hours.</p>
+          </details>
+          <details className="landing-faq__item">
+            <summary className="landing-faq__q">Who built Waddle?</summary>
+            <p className="landing-faq__a">Waddle is built by <a href="https://www.fovea.space/" target="_blank" rel="noopener noreferrer">Fovea</a>, a company focused on AI tools for Southeast Asian SMEs. The AI is powered by <a href="https://heylua.ai/" target="_blank" rel="noopener noreferrer">Lua AI</a>, a Y Combinator-backed company.</p>
+          </details>
+          <details className="landing-faq__item">
+            <summary className="landing-faq__q">Which countries does Waddle support?</summary>
+            <p className="landing-faq__a">Waddle currently serves SMEs in Malaysia and Singapore, with supplier directories covering both markets.</p>
+          </details>
+        </div>
+      </section>
+
       {/* ── Final CTA ── */}
-      <section className="landing-cta">
+      <section className="landing-cta" aria-label="Get started with Waddle">
         <h2 className="landing-cta__heading">
           Stop wasting time on procurement.
         </h2>
@@ -205,7 +232,11 @@ export function LandingPage({ user, onSignIn }) {
 
       {/* ── Footer ── */}
       <footer className="landing-footer">
-        <span>© 2025 Fovea · Waddle</span>
+        <span>
+          Built by <a href="https://www.fovea.space/" target="_blank" rel="noopener noreferrer" className="landing-footer__link">Fovea</a>
+          {' '}&middot;{' '}
+          Powered by <a href="https://heylua.ai/" target="_blank" rel="noopener noreferrer" className="landing-footer__link">Lua AI</a> (YC-backed)
+        </span>
         <span>Malaysia &amp; Singapore</span>
       </footer>
 
