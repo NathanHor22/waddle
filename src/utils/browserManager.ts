@@ -1,4 +1,4 @@
-import { chromium, Browser, BrowserContext } from 'playwright';
+import type { Browser, BrowserContext } from 'playwright';
 
 interface BrowserOptions {
   headless?: boolean;
@@ -27,6 +27,8 @@ export class BrowserManager {
 
   async getBrowser(options: BrowserOptions = {}): Promise<Browser> {
     if (!this.browser || !this.browser.isConnected()) {
+      // new Function prevents esbuild from statically bundling playwright
+      const { chromium } = await (new Function('return import("playwright")')() as Promise<typeof import('playwright')>);
       this.browser = await chromium.launch({
         headless: options.headless ?? true,
         args: [

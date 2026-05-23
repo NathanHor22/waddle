@@ -1,7 +1,7 @@
-const BASE = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3001'
+import { apiFetch } from './api'
 
 export async function createSession(title, threadId) {
-  const res = await fetch(`${BASE}/api/sessions`, {
+  const res = await apiFetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, threadId }),
@@ -12,21 +12,21 @@ export async function createSession(title, threadId) {
 }
 
 export async function getSessions() {
-  const res = await fetch(`${BASE}/api/sessions`)
+  const res = await apiFetch('/api/sessions')
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'Failed to load sessions')
   return data
 }
 
 export async function getSession(id) {
-  const res = await fetch(`${BASE}/api/sessions/${id}`)
+  const res = await apiFetch(`/api/sessions/${id}`)
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'Session not found')
-  return data // { session, messages }
+  return data
 }
 
 export async function appendSessionMessage(sessionId, role, content) {
-  const res = await fetch(`${BASE}/api/sessions/${sessionId}/messages`, {
+  const res = await apiFetch(`/api/sessions/${sessionId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ role, content }),
@@ -36,5 +36,5 @@ export async function appendSessionMessage(sessionId, role, content) {
 }
 
 export async function deleteSession(id) {
-  await fetch(`${BASE}/api/sessions/${id}`, { method: 'DELETE' })
+  await apiFetch(`/api/sessions/${id}`, { method: 'DELETE' })
 }

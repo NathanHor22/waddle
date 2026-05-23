@@ -94,12 +94,17 @@ class WhatsAppService extends EventEmitter {
           const jid = msg.key.remoteJid
           if (!jid || !jid.endsWith('@s.whatsapp.net')) continue // groups ignored
 
-          const text = extractText(msg.message)
-          if (!text) continue // images, stickers, voice notes, etc. ignored
+          const text      = extractText(msg.message)
+          const mediaType = extractMediaType(msg.message)
 
+          // Silently drop stickers — no meaningful response possible
+          if (!text && !mediaType) continue
+          if (mediaType === 'sticker') continue
+
+          const effectiveText = text ?? `[${mediaType} received — please respond in text so I can continue the negotiation]`
           const phone = jid.replace('@s.whatsapp.net', '')
           for (const handler of this.messageHandlers) {
-            handler(phone, text, msg.key)
+            handler(phone, effectiveText, msg.key)
           }
         }
       })
@@ -160,6 +165,15 @@ function extractText(message: proto.IMessage): string | null {
     message.extendedTextMessage?.text ??
     null
   )
+}
+
+function extractMediaType(message: proto.IMessage): string | null {
+  if (message.imageMessage)    return 'image'
+  if (message.documentMessage) return 'document'
+  if (message.audioMessage)    return 'voice note'
+  if (message.videoMessage)    return 'video'
+  if (message.stickerMessage)  return 'sticker'
+  return null
 }
 
 export const whatsAppService = new WhatsAppService()

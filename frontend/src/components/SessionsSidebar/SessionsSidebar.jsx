@@ -3,8 +3,9 @@ import { getSessions, deleteSession } from '../../lib/sessionsApi'
 import './SessionsSidebar.css'
 
 export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession }) {
-  const [sessions, setSessions] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [sessions, setSessions]   = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [dismissing, setDismissing] = useState(new Set())
 
   const load = useCallback(() => {
     getSessions()
@@ -13,20 +14,22 @@ export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  useEffect(() => { load() }, [load])
 
-  // Refresh list whenever a session is created (activeSessionId changes to a new value)
   useEffect(() => {
     if (activeSessionId) load()
   }, [activeSessionId, load])
 
   async function handleDelete(e, id) {
     e.stopPropagation()
+    setDismissing(prev => new Set([...prev, id]))
     await deleteSession(id)
-    setSessions(prev => prev.filter(s => s.id !== id))
-    if (activeSessionId === id) onNewSession()
+    // Wait for CSS animation before removing from state
+    setTimeout(() => {
+      setSessions(prev => prev.filter(s => s.id !== id))
+      setDismissing(prev => { const n = new Set(prev); n.delete(id); return n })
+      if (activeSessionId === id) onNewSession()
+    }, 280)
   }
 
   return (
@@ -53,6 +56,7 @@ export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession
         {sessions.map(session => (
           <button
             key={session.id}
+            data-dismissing={dismissing.has(session.id) ? 'true' : undefined}
             className={`session-item${session.id === activeSessionId ? ' session-item--active' : ''}`}
             onClick={() => onSelectSession(session.id)}
           >

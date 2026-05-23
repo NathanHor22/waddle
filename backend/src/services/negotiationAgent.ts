@@ -8,9 +8,21 @@ import type { ConversationMessage, DetectionResult, NegotiationTurnResult } from
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-// Sliding window: only send last N messages to Claude to keep token count flat
 const CONTEXT_WINDOW_SIZE = 6
-const MAX_AGENT_ROUNDS = 5
+const MAX_AGENT_ROUNDS    = 5
+
+// In-memory rate limiter: max 10 messages per phone per minute
+const rateLimitMap = new Map<string, number[]>()
+const RATE_LIMIT_MAX = 10
+const RATE_LIMIT_WINDOW_MS = 60_000
+
+function isRateLimited(phone: string): boolean {
+  const now = Date.now()
+  const timestamps = (rateLimitMap.get(phone) ?? []).filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+  timestamps.push(now)
+  rateLimitMap.set(phone, timestamps)
+  return timestamps.length > RATE_LIMIT_MAX
+}
 
 // Cached system prompt — Anthropic charges 10% for cache hits vs full price
 // This alone cuts ~65–70% of input token cost across a multi-turn negotiation
@@ -49,6 +61,7 @@ JSON format:
   "hasQuotedPrice": boolean,
   "isNegotiationComplete": boolean,
   "isRejection": boolean,
+  "asksQuestion": boolean,
   "extractedPrice": string | null,
   "extractedMoq": string | null,
   "extractedLeadTime": string | null
@@ -58,6 +71,7 @@ Rules:
 - hasQuotedPrice: true if a specific price/cost figure is mentioned
 - isNegotiationComplete: true if all key terms are confirmed and supplier is ready to proceed
 - isRejection: true if supplier declined, cannot supply, or is out of stock
+- asksQuestion: true if the supplier is asking a question that needs a specific answer (delivery address, company name, specifications, etc.)
 - extractedPrice: exact price string mentioned (e.g. "RM 4,500"), null if none
 - extractedMoq: MOQ string if mentioned (e.g. "50 units"), null if none
 - extractedLeadTime: lead time string if mentioned (e.g. "7 days"), null if none`,
@@ -67,13 +81,13 @@ Rules:
 
   const textBlock = response.content.find(b => b.type === 'text')
   if (!textBlock || textBlock.type !== 'text') {
-    return { hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null }
+    return { hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false, asksQuestion: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null }
   }
 
   try {
     return JSON.parse(textBlock.text.trim()) as DetectionResult
   } catch {
-    return { hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null }
+    return { hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false, asksQuestion: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null }
   }
 }
 
@@ -107,6 +121,11 @@ export async function runNegotiationTurn(negotiationId: string): Promise<Negotia
 
   const lastSupplierMsg = supplierMessages[supplierMessages.length - 1]
 
+  if (isRateLimited(negotiation.phone)) {
+    sseManager.emit(negotiationId, 'activity', { text: 'Rate limit reached — pausing briefly...' })
+    return { done: false }
+  }
+
   // Enforce max rounds
   if (countAgentRounds(allMessages) >= MAX_AGENT_ROUNDS) {
     const summary = 'Maximum negotiation rounds reached. Review the conversation and contact the supplier directly for final confirmation.'
@@ -133,6 +152,10 @@ export async function runNegotiationTurn(negotiationId: string): Promise<Negotia
     await updateNegotiation(negotiationId, { status: 'done', summary })
     sseManager.emit(negotiationId, 'status', { status: 'done', summary })
     return { done: true, summary }
+  }
+
+  if (detection.asksQuestion) {
+    sseManager.emit(negotiationId, 'activity', { text: 'Supplier asked a question — preparing answer...' })
   }
 
   // Phase 2: Simulate reading delay

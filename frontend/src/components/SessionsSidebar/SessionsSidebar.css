@@ -77,7 +77,19 @@
   background: transparent;
   cursor: pointer;
   text-align: left;
-  transition: background 0.12s;
+  transition: background 0.12s, opacity 0.25s ease, transform 0.25s ease;
+  animation: session-enter 0.2s ease;
+}
+
+@keyframes session-enter {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+.session-item[data-dismissing='true'] {
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
 }
 
 .session-item:hover {

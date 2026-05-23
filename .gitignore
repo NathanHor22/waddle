@@ -22,3 +22,5 @@ dist-ssr
 dist-v2/
 backend/.env
 backend/.baileys-auth/
+frontend/.env
+frontend/dist/

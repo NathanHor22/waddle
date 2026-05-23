@@ -1,17 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { useLocation } from '../../context/LocationContext'
 import { useWaddleChat } from '../../hooks/useWaddleChat'
 import { QuestionCard } from '../QuestionCard/QuestionCard'
 import { RecommendationCard } from '../RecommendationCard/RecommendationCard'
 import { NegotiateModal } from '../NegotiateModal/NegotiateModal'
 import { EmailModal } from '../EmailModal/EmailModal'
+import { WaddlingLoader } from '../WaddlingLoader/WaddlingLoader'
 import { exportRecommendationsToExcel } from '../../lib/exportToExcel'
 import './HeroSearch.css'
 
 export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
   const { location } = useLocation()
   const {
-    messages, isLoading, send, answer,
+    messages, isLoading, isSearching, send, answer,
     startNegotiate, closeNegotiation, negotiationItem,
     startEmail, closeEmail, emailItem,
     currentSessionId,
@@ -24,7 +26,7 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, isSearching])
 
   function autoResize() {
     const el = textareaRef.current
@@ -50,16 +52,13 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
     if (!trimmed || isLoading) return
     send(trimmed, location.searchInstruction)
     setQuery('')
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
   const isEmpty = !query.trim()
 
   return (
     <div className={`hero-wrapper${hasSentMessage ? ' hero-wrapper--chat' : ''}`}>
-      {/* ── Hero copy ────────────────────────────────────── */}
       {!hasSentMessage && (
         <section className="hero">
           <p className="hero__tagline">
@@ -71,7 +70,6 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
         </section>
       )}
 
-      {/* ── Message thread ───────────────────────────────── */}
       {hasSentMessage && (
         <div className="chat-thread">
           {messages.map((msg) => {
@@ -117,20 +115,33 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
               )
             }
 
+            if (msg.role === 'user') {
+              return (
+                <div key={msg.id} className="chat-msg chat-msg--user">
+                  <p className="chat-msg__text">{msg.text}</p>
+                </div>
+              )
+            }
+
+            // assistant
             return (
-              <div key={msg.id} className={`chat-msg chat-msg--${msg.role}${msg.error ? ' chat-msg--error' : ''}`}>
-                <p className="chat-msg__text">
-                  {msg.text}
-                  {msg.streaming && <span className="chat-cursor" aria-hidden="true" />}
-                </p>
+              <div key={msg.id} className={`chat-msg chat-msg--assistant${msg.error ? ' chat-msg--error' : ''}`}>
+                <div className="chat-msg__text chat-msg__text--md">
+                  {msg.text && <ReactMarkdown>{msg.text}</ReactMarkdown>}
+                  {msg.streaming && !isSearching && (
+                    <span className="chat-cursor" aria-hidden="true" />
+                  )}
+                </div>
               </div>
             )
           })}
+
+          {isSearching && <WaddlingLoader />}
+
           <div ref={messagesEndRef} />
         </div>
       )}
 
-      {/* ── Search / follow-up input ─────────────────────── */}
       <div className={`search-wrap${hasSentMessage ? ' search-wrap--bottom' : ''}`}>
         <form
           className="hero__form"
@@ -168,6 +179,7 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
           )}
         </form>
       </div>
+
       {negotiationItem && (
         <NegotiateModal
           item={negotiationItem}

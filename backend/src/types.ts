@@ -63,6 +63,7 @@ export interface DetectionResult {
   hasQuotedPrice: boolean
   isNegotiationComplete: boolean
   isRejection: boolean
+  asksQuestion: boolean
   extractedPrice: string | null
   extractedMoq: string | null
   extractedLeadTime: string | null

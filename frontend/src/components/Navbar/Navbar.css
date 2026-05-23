@@ -9,12 +9,21 @@
   background: transparent;
 }
 
-/* ── Logo ── */
+/* ── Logo (now a button) ── */
 .navbar__logo {
   display: flex;
   align-items: center;
   gap: 9px;
-  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.13s;
+}
+
+.navbar__logo:hover {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .navbar__logo-img {
@@ -40,8 +49,62 @@
 /* ── Right slot ── */
 .navbar__right {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
 }
+
+/* ── Auth ── */
+.navbar__sign-in {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
+  white-space: nowrap;
+}
+
+.navbar__sign-in:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #f1f5f9;
+}
+
+.navbar__user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navbar__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.navbar__sign-out {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: color 0.13s;
+}
+
+.navbar__sign-out:hover { color: #94a3b8; }
 
 @media (max-width: 480px) {
   .navbar { padding: 12px 16px; }

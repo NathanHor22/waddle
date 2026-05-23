@@ -2,29 +2,27 @@ import { LuaSkill } from 'lua-cli';
 import { scrapePublicPageTool } from '../tools/scrapePublicPage.tool.js';
 import { scrapeAuthenticatedPageTool } from '../tools/scrapeAuthenticatedPage.tool.js';
 import { extractProductDataTool } from '../tools/extractProductData.tool.js';
+import { sourceRouterTool } from '../tools/sourceRouter.tool.js';
+import { supplierScorerTool } from '../tools/supplierScorer.tool.js';
 
-/**
- * Web scraping skill for Waddle.
- *
- * Gives the agent the ability to navigate supplier websites — both public
- * and login-protected — and extract structured product and pricing data.
- *
- * Typical flow the agent follows:
- * 1. scrape_public_page  OR  scrape_authenticated_page  →  get raw page text
- * 2. extract_product_data  →  turn text into structured listings
- */
 export const webScrapingSkill = new LuaSkill({
   name: 'web-scraping',
   description:
-    'Scrapes supplier websites to retrieve live product listings, pricing, and availability.',
+    'Finds, scrapes, and ranks suppliers for a given procurement query in Malaysia or Singapore.',
   context:
-    'Use this skill whenever the user asks you to find, compare, or verify product information ' +
-    'from a specific supplier URL. ' +
-    'Always start with scrape_public_page unless you know the page requires a login. ' +
-    'If the scrape returns a login wall or fails with an auth error, switch to ' +
-    'scrape_authenticated_page and ask the user for the credentialsKey if not provided. ' +
-    'After scraping, always call extract_product_data to produce structured results before ' +
-    'presenting information to the user. ' +
-    'Never expose raw credentials or environment variable values in responses.',
-  tools: [scrapePublicPageTool, scrapeAuthenticatedPageTool, extractProductDataTool],
+    'Systematic search flow — follow these steps in order:\n' +
+    '1. Call find_supplier_sources with the user query and location to get curated directory URLs.\n' +
+    '2. Call scrape_public_page on each URL to retrieve live supplier listings.\n' +
+    '3. Call extract_product_data on each scraped page to produce structured supplier data.\n' +
+    '4. Call score_suppliers with all extracted candidates plus the user\'s location, budget, and quantity hints.\n' +
+    '5. Pick the top 4 scored suppliers for the recommendation block.\n\n' +
+    'Use scrape_authenticated_page only if a page returns a login wall. ' +
+    'Never expose credentials in responses.',
+  tools: [
+    sourceRouterTool,
+    scrapePublicPageTool,
+    scrapeAuthenticatedPageTool,
+    extractProductDataTool,
+    supplierScorerTool,
+  ],
 });

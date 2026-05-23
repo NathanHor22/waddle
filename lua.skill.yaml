@@ -4,7 +4,7 @@ agent:
 skills:
   - name: web-scraping
     skillId: fd53ab8f-bfdd-4c00-abb7-c32a387e1e85
-    version: 1.0.3
+    version: 1.0.4
 webhooks: []
 jobs: []
 preprocessors: []

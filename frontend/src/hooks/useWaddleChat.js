@@ -86,8 +86,9 @@ function reconstructMessages(dbMessages) {
 // sessionId: current session UUID from parent, or null for a fresh chat
 // onSessionCreated: called with the new session ID when the first message creates a session
 export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}) {
-  const [messages, setMessages]   = useState([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [messages, setMessages]     = useState([])
+  const [isLoading, setIsLoading]   = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
 
   const threadId        = useRef(crypto.randomUUID())
   const lastLocationRef = useRef(null)
@@ -149,11 +150,11 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
     return session.id
   }
 
-  const _streamFromLLM = useCallback(async (llmMessage, sid) => {
+  const _streamFromLLM = useCallback(async (llmMessage, sid, { searching = false } = {}) => {
     const assistantId = crypto.randomUUID()
-    // Track full text locally so side-effects live outside state updaters
     let fullText = ''
 
+    if (searching) setIsSearching(true)
     setMessages(prev => [
       ...prev,
       { id: assistantId, role: 'assistant', text: '', streaming: true },
@@ -171,6 +172,7 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
         )
       },
       onDone: () => {
+        setIsSearching(false)
         const activeSid = sid ?? activeSessionRef.current
         const recs = parseRecommendations(fullText)
         const opts = parseOptionsBlock(fullText)
@@ -213,6 +215,7 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
         setIsLoading(false)
       },
       onError: (errMsg) => {
+        setIsSearching(false)
         setMessages(prev =>
           prev.map(m =>
             m.id === assistantId
@@ -299,14 +302,12 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
         },
       ])
     } else if (nextIndex === PROCUREMENT_QUESTIONS.length) {
-      // Exactly 4 answers — call LLM once. Any extra calls (double-click race)
-      // land in the implicit else and are silently ignored.
       const compiled = compileProcurementMessage(
         flowRef.current.originalQuery,
         answers,
         lastLocationRef.current,
       )
-      _streamFromLLM(compiled, activeSessionRef.current)
+      _streamFromLLM(compiled, activeSessionRef.current, { searching: true })
     }
   }, [_streamFromLLM])
 
@@ -321,6 +322,7 @@ export function useWaddleChat({ sessionId = null, onSessionCreated = null } = {}
   return {
     messages,
     isLoading,
+    isSearching,
     send,
     answer,
     startNegotiate,
