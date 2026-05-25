@@ -8,8 +8,13 @@ const router = Router()
 router.use(requireAuth)
 
 router.get('/', async (req: Request, res: Response) => {
-  const jobs = await getJobs(req.user!.id)
-  res.json(jobs)
+  try {
+    const jobs = await getJobs(req.user!.id)
+    res.json(jobs)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load jobs'
+    res.status(500).json({ error: message })
+  }
 })
 
 router.post('/', async (req: Request, res: Response) => {
@@ -28,17 +33,21 @@ router.post('/', async (req: Request, res: Response) => {
     return
   }
 
-  const job = await createJob({
-    userId: req.user!.id,
-    supplierContact: supplierContact.trim(),
-    contactType,
-    productDescription: productDescription.trim(),
-    quantity: quantity?.trim() || undefined,
-    budget: budget?.trim() || undefined,
-    notes: notes?.trim() || undefined,
-  })
-
-  res.json(job)
+  try {
+    const job = await createJob({
+      userId: req.user!.id,
+      supplierContact: supplierContact.trim(),
+      contactType,
+      productDescription: productDescription.trim(),
+      quantity: quantity?.trim() || undefined,
+      budget: budget?.trim() || undefined,
+      notes: notes?.trim() || undefined,
+    })
+    res.json(job)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to create job'
+    res.status(500).json({ error: message })
+  }
 })
 
 export default router

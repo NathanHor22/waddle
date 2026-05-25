@@ -1,21 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { getUserById } from '../db/queries/users.js'
-import type { User } from '../db/queries/users.js'
-
-declare global {
-  namespace Express {
-    interface User {
-      id: string
-      email: string
-      name: string | null
-      avatarUrl: string | null
-    }
-    interface Request {
-      user?: User
-    }
-  }
-}
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = extractToken(req)
@@ -31,7 +16,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       res.status(401).json({ error: 'User not found' })
       return
     }
-    req.user = user
+    req.user = user as Express.User
     next()
   } catch {
     res.status(401).json({ error: 'Invalid token' })
@@ -43,7 +28,8 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   if (token) {
     try {
       const payload = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string }
-      req.user = await getUserById(payload.userId) ?? undefined
+      const user = await getUserById(payload.userId)
+      req.user = user ?? undefined
     } catch {
       // Token invalid — continue as anonymous
     }

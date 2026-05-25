@@ -41,31 +41,41 @@ router.post('/start', async (req: Request<object, object, StartNegotiateBody>, r
 })
 
 router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  const negotiation = await getNegotiation(req.params.id)
-  if (!negotiation) {
-    res.status(404).json({ error: 'Negotiation not found' })
-    return
+  try {
+    const negotiation = await getNegotiation(req.params.id)
+    if (!negotiation) {
+      res.status(404).json({ error: 'Negotiation not found' })
+      return
+    }
+    res.json(negotiation)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch negotiation'
+    res.status(500).json({ error: message })
   }
-  res.json(negotiation)
 })
 
 // Server-Sent Events stream — frontend subscribes for real-time updates
 router.get('/:id/events', async (req: Request<{ id: string }>, res: Response) => {
-  const negotiation = await getNegotiation(req.params.id)
-  if (!negotiation) {
-    res.status(404).json({ error: 'Negotiation not found' })
-    return
+  try {
+    const negotiation = await getNegotiation(req.params.id)
+    if (!negotiation) {
+      res.status(404).json({ error: 'Negotiation not found' })
+      return
+    }
+
+    const cleanup = sseManager.addClient(req.params.id, res)
+
+    // Send current state immediately so the client is in sync on connect
+    res.write(`event: status\ndata: ${JSON.stringify({ status: negotiation.status })}\n\n`)
+    for (const msg of negotiation.messages) {
+      res.write(`event: message\ndata: ${JSON.stringify(msg)}\n\n`)
+    }
+
+    req.on('close', cleanup)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to connect to event stream'
+    res.status(500).json({ error: message })
   }
-
-  const cleanup = sseManager.addClient(req.params.id, res)
-
-  // Send current state immediately so the client is in sync on connect
-  res.write(`event: status\ndata: ${JSON.stringify({ status: negotiation.status })}\n\n`)
-  for (const msg of negotiation.messages) {
-    res.write(`event: message\ndata: ${JSON.stringify(msg)}\n\n`)
-  }
-
-  req.on('close', cleanup)
 })
 
 export default router

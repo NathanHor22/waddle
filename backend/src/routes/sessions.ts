@@ -15,8 +15,13 @@ const router = Router()
 router.use(optionalAuth)
 
 router.get('/', async (req: Request, res: Response) => {
-  const sessions = await getSessions(req.user?.id)
-  res.json(sessions)
+  try {
+    const sessions = await getSessions(req.user?.id)
+    res.json(sessions)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load sessions'
+    res.status(500).json({ error: message })
+  }
 })
 
 router.post('/', async (req: Request, res: Response) => {
@@ -25,17 +30,27 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'title and threadId are required' })
     return
   }
-  const session = await createSession(title.trim(), threadId.trim(), req.user?.id)
-  res.json(session)
+  try {
+    const session = await createSession(title.trim(), threadId.trim(), req.user?.id)
+    res.json(session)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to create session'
+    res.status(500).json({ error: message })
+  }
 })
 
 router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  const result = await getSession(req.params.id, req.user?.id)
-  if (!result) {
-    res.status(404).json({ error: 'Session not found' })
-    return
+  try {
+    const result = await getSession(req.params.id, req.user?.id)
+    if (!result) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+    res.json(result)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load session'
+    res.status(500).json({ error: message })
   }
-  res.json(result)
 })
 
 router.post('/:id/messages', async (req: Request<{ id: string }>, res: Response) => {
@@ -44,13 +59,23 @@ router.post('/:id/messages', async (req: Request<{ id: string }>, res: Response)
     res.status(400).json({ error: 'role and content are required' })
     return
   }
-  const msg = await appendSessionMessage(req.params.id, role, content)
-  res.json(msg)
+  try {
+    const msg = await appendSessionMessage(req.params.id, role, content)
+    res.json(msg)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to save message'
+    res.status(500).json({ error: message })
+  }
 })
 
 router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  await deleteSession(req.params.id, req.user?.id)
-  res.json({ ok: true })
+  try {
+    await deleteSession(req.params.id, req.user?.id)
+    res.json({ ok: true })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to delete session'
+    res.status(500).json({ error: message })
+  }
 })
 
 export default router

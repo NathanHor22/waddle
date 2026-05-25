@@ -174,7 +174,7 @@ export async function runNegotiationTurn(negotiationId: string): Promise<Negotia
   const recentMessages = await getRecentMessages(negotiationId, CONTEXT_WINDOW_SIZE)
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5',
+    model: 'claude-sonnet-4-6',
     max_tokens: 350,
     system: [
       {

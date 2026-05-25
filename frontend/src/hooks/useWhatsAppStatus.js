@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getWhatsAppStatus, getWhatsAppQR } from '../lib/negotiateApi.js'
+import { getWhatsAppStatus, getWhatsAppQR } from '../lib/whatsappApi.js'
 
 const POLL_MS = 3_000
 

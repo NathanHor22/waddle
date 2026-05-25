@@ -114,6 +114,7 @@ class QueueManager {
   private async runEntry(negotiationId: string): Promise<void> {
     if (this.processing) return
     this.processing = true
+    let errored = false
 
     try {
       await updateQueueItem(negotiationId, { status: 'active' })
@@ -126,9 +127,12 @@ class QueueManager {
       await updateNegotiation(negotiationId, { status: 'failed' })
       sseManager.emit(negotiationId, 'status', { status: 'failed' })
       this.entries.delete(negotiationId)
-      this.processNext()
+      errored = true
     } finally {
       this.processing = false
+      // Only drive the queue forward here on error — the happy path calls
+      // processNext via handleTurnResult/onNegotiationDone
+      if (errored) this.processNext()
     }
   }
 
