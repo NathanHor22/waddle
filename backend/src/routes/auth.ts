@@ -7,12 +7,18 @@ import { requireAuth } from '../middleware/auth.js'
 
 const router = Router()
 
+function normaliseUrl(url: string): string {
+  return /^https?:\/\//.test(url) ? url : `https://${url}`
+}
+const BACKEND_URL  = normaliseUrl(process.env.BACKEND_URL  ?? 'http://localhost:3001')
+const FRONTEND_URL = normaliseUrl(process.env.FRONTEND_URL ?? 'http://localhost:5173')
+
 passport.use(
   new GoogleStrategy(
     {
       clientID:     process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL:  `${process.env.BACKEND_URL ?? 'http://localhost:3001'}/api/auth/google/callback`,
+      callbackURL:  `${BACKEND_URL}/api/auth/google/callback`,
     },
     async (_accessToken, _refreshToken, profile, done) => {
       try {
@@ -42,7 +48,7 @@ router.get('/google',
 )
 
 router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}?error=auth_failed`, session: true }),
+  passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}?error=auth_failed`, session: true }),
   (req, res) => {
     const user = req.user as any
     const token = jwt.sign(
@@ -50,8 +56,7 @@ router.get('/google/callback',
       process.env.JWT_SECRET!,
       { expiresIn: '30d' },
     )
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173'
-    res.redirect(`${frontendUrl}/app?token=${encodeURIComponent(token)}`)
+    res.redirect(`${FRONTEND_URL}/app?token=${encodeURIComponent(token)}`)
   },
 )
 

@@ -23,4 +23,5 @@ dist-v2/
 backend/.env
 backend/.baileys-auth/
 frontend/.env
+frontend/.env.production
 frontend/dist/
