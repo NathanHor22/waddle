@@ -50,8 +50,8 @@ async function start(): Promise<void> {
   console.log('[db] migrations up to date')
 
   // 2. Start HTTP server
-  app.listen(PORT, () => {
-    console.log(`[server] Waddle backend → http://localhost:${PORT}`)
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[server] Waddle backend → http://0.0.0.0:${PORT}`)
   })
 
   // 3. Initialise WhatsApp — non-fatal so a Baileys error never takes the HTTP server down
@@ -72,4 +72,12 @@ async function start(): Promise<void> {
 start().catch(err => {
   console.error('[server] fatal startup error:', err)
   process.exit(1)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] unhandled rejection:', reason)
+})
+
+process.on('uncaughtException', (err) => {
+  console.error('[process] uncaught exception:', err)
 })
