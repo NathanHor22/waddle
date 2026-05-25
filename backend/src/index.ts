@@ -3,8 +3,6 @@ import express from 'express'
 import cors from 'cors'
 import session from 'express-session'
 import passport from 'passport'
-import path from 'path'
-import { fileURLToPath } from 'url'
 import { runMigrations } from './db/migrate.js'
 import { whatsAppService } from './services/whatsappBaileys.js'
 import { queueManager } from './services/queueManager.js'
@@ -16,9 +14,8 @@ import authRouter from './routes/auth.js'
 import waddleForMeRouter from './routes/waddleForMe.js'
 
 const app = express()
+app.set('trust proxy', 1) // Railway (and other PaaS) terminate TLS at the proxy
 const PORT = Number(process.env.PORT ?? 3001)
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FRONTEND_DIST = path.resolve(__dirname, '../../frontend/dist')
 
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173', credentials: true }))
 app.use(express.json())
@@ -37,11 +34,6 @@ app.use('/api/email', emailRouter)
 app.use('/api/negotiate', negotiateRouter)
 app.use('/api/whatsapp', whatsappRouter)
 app.use('/api/waddle-for-me', waddleForMeRouter)
-
-app.use(express.static(FRONTEND_DIST))
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(FRONTEND_DIST, 'index.html'))
-})
 
 async function start(): Promise<void> {
   // 1. Run any pending DB migrations before anything else
