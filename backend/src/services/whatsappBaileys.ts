@@ -6,6 +6,7 @@ import makeWASocket, {
   type proto,
 } from '@whiskeysockets/baileys'
 import { EventEmitter } from 'node:events'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import P from 'pino'
@@ -31,6 +32,12 @@ class WhatsAppService extends EventEmitter {
     if (this.reconnecting) return
     this.reconnecting = true
     this.status = 'connecting'
+
+    // Detach old socket's listeners so stale events don't corrupt state
+    if (this.sock) {
+      try { this.sock.ev.removeAllListeners() } catch {}
+      this.sock = null
+    }
 
     try {
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
@@ -76,11 +83,15 @@ class WhatsAppService extends EventEmitter {
           this.emit('disconnected', loggedOut)
           console.log(`[whatsapp] disconnected — loggedOut=${loggedOut}`)
 
-          if (!loggedOut) {
-            // Back-off then reconnect
-            await new Promise(r => setTimeout(r, 3_000))
-            await this.initialize()
+          if (loggedOut) {
+            // Stale credentials — wipe them so next initialize() gets a fresh QR
+            await fs.rm(AUTH_DIR, { recursive: true, force: true }).catch(() => {})
+            console.log('[whatsapp] cleared stale auth state, will re-prompt for QR')
           }
+
+          // Always retry so the user can re-scan
+          await new Promise(r => setTimeout(r, 3_000))
+          await this.initialize()
         }
       })
 

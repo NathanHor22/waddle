@@ -116,22 +116,6 @@
 
 @keyframes wa-spin { to { transform: rotate(360deg); } }
 
-/* Inline banner (shown on /app page, not a modal) */
-.wa-banner {
-  background: #fff;
-  border: 1.5px solid var(--color-slate-200);
-  border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(10, 20, 35, 0.08);
-  padding: 28px 28px 24px;
-  max-width: 380px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  margin: 0 auto;
-}
-
 /* Steps */
 .wa-modal__steps {
   text-align: left;

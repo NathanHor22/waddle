@@ -31,10 +31,10 @@ export function WhatsAppConnect({ onConnected, onClose }) {
         </p>
 
         <div className="wa-modal__qr-area">
-          {(status === 'connecting' || (status === 'qr_ready' && !qr)) && (
+          {(status === 'connecting' || status === 'disconnected' || (status === 'qr_ready' && !qr)) && (
             <div className="wa-modal__placeholder">
               <div className="wa-spinner" />
-              <p>Generating QR code...</p>
+              <p>{status === 'disconnected' ? 'Reconnecting...' : 'Generating QR code...'}</p>
             </div>
           )}
 
