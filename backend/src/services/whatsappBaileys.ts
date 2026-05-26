@@ -27,17 +27,14 @@ class WhatsAppService extends EventEmitter {
   private qrDataUrl: string | null = null
   private messageHandlers: IncomingMessageHandler[] = []
   private reconnecting = false
+  private generation = 0 // incremented each initialize() so stale handlers self-discard
 
   async initialize(): Promise<void> {
     if (this.reconnecting) return
     this.reconnecting = true
     this.status = 'connecting'
-
-    // Detach old socket's listeners so stale events don't corrupt state
-    if (this.sock) {
-      try { this.sock.ev.removeAllListeners() } catch {}
-      this.sock = null
-    }
+    this.sock = null
+    const gen = ++this.generation
 
     try {
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
@@ -56,6 +53,7 @@ class WhatsAppService extends EventEmitter {
       this.sock.ev.on('creds.update', saveCreds)
 
       this.sock.ev.on('connection.update', async (update) => {
+        if (gen !== this.generation) return // superseded by a newer initialize()
         const { connection, lastDisconnect, qr } = update
 
         if (qr) {
@@ -96,6 +94,7 @@ class WhatsAppService extends EventEmitter {
       })
 
       this.sock.ev.on('messages.upsert', ({ messages, type }) => {
+        if (gen !== this.generation) return
         if (type !== 'notify') return
 
         for (const msg of messages) {
