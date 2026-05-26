@@ -38,10 +38,12 @@ class WhatsAppService extends EventEmitter {
 
     try {
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
-      const { version } = await fetchLatestBaileysVersion()
+
+      // fetchLatestBaileysVersion() calls GitHub — fall back to bundled version if it fails
+      const versionResult = await fetchLatestBaileysVersion().catch(() => ({ version: undefined }))
 
       this.sock = makeWASocket({
-        version,
+        ...(versionResult.version ? { version: versionResult.version } : {}),
         auth: state,
         logger: silentLogger,
         printQRInTerminal: false,
@@ -120,8 +122,11 @@ class WhatsAppService extends EventEmitter {
       })
     } catch (err) {
       this.reconnecting = false
-      console.error('[whatsapp] initialization error:', err)
-      throw err
+      console.error('[whatsapp] initialization error — retrying in 5s:', err)
+      // Retry after backoff so a transient failure (e.g. network blip) self-heals
+      setTimeout(() => {
+        this.initialize().catch(e => console.error('[whatsapp] retry error:', e))
+      }, 5_000)
     }
   }
 
