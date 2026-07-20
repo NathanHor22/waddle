@@ -3,8 +3,15 @@ import OpenAI from 'openai'
 // Single LLM seam for the whole backend. Defaults to Groq (OpenAI-compatible),
 // but the base URL / models are env-driven, so swapping provider — back to
 // Anthropic's OpenAI-compat endpoint, OpenAI, Together, etc. — is config-only.
+const llmApiKey = process.env.GROQ_API_KEY ?? process.env.LLM_API_KEY
+if (!llmApiKey) {
+  throw new Error(
+    'Missing LLM credentials: set GROQ_API_KEY or LLM_API_KEY in the backend environment.'
+  )
+}
+
 const client = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY ?? process.env.LLM_API_KEY,
+  apiKey: llmApiKey,
   baseURL: process.env.LLM_BASE_URL ?? 'https://api.groq.com/openai/v1',
 })
 
