@@ -6,6 +6,7 @@ export interface User {
   email: string
   name: string | null
   avatarUrl: string | null
+  companyId: string | null
   createdAt: string
 }
 
@@ -25,7 +26,8 @@ export async function upsertUser(params: UpsertUserParams): Promise<User> {
        SET email      = EXCLUDED.email,
            name       = EXCLUDED.name,
            avatar_url = EXCLUDED.avatar_url
-     RETURNING id, google_id AS "googleId", email, name, avatar_url AS "avatarUrl", created_at AS "createdAt"`,
+     RETURNING id, google_id AS "googleId", email, name, avatar_url AS "avatarUrl",
+               company_id AS "companyId", created_at AS "createdAt"`,
     [googleId, email, name, avatarUrl],
   )
   return rows[0]
@@ -33,9 +35,14 @@ export async function upsertUser(params: UpsertUserParams): Promise<User> {
 
 export async function getUserById(id: string): Promise<User | null> {
   const { rows } = await db.query<User>(
-    `SELECT id, google_id AS "googleId", email, name, avatar_url AS "avatarUrl", created_at AS "createdAt"
+    `SELECT id, google_id AS "googleId", email, name, avatar_url AS "avatarUrl",
+            company_id AS "companyId", created_at AS "createdAt"
      FROM users WHERE id = $1`,
     [id],
   )
   return rows[0] ?? null
+}
+
+export async function setUserCompany(userId: string, companyId: string): Promise<void> {
+  await db.query('UPDATE users SET company_id = $1 WHERE id = $2', [companyId, userId])
 }

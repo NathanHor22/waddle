@@ -56,13 +56,13 @@ router.get('/google/callback',
       process.env.JWT_SECRET!,
       { expiresIn: '30d' },
     )
-    res.redirect(`${FRONTEND_URL}/app?token=${encodeURIComponent(token)}`)
+    res.redirect(`${FRONTEND_URL}/rfqs?token=${encodeURIComponent(token)}`)
   },
 )
 
 router.get('/me', requireAuth, (req, res) => {
-  const { id, email, name, avatarUrl } = req.user!
-  res.json({ id, email, name, avatar: avatarUrl })
+  const { id, email, name, avatarUrl, companyId } = req.user!
+  res.json({ id, email, name, avatar: avatarUrl, companyId })
 })
 
 export default router

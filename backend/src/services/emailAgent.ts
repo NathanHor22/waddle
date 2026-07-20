@@ -1,6 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+import { complete, LLM_MODELS } from './llm.js'
 
 export interface EmailContext {
   supplierName: string
@@ -17,9 +15,10 @@ export interface EmailDraft {
 }
 
 export async function generateEmailDraft(ctx: EmailContext): Promise<EmailDraft> {
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 800,
+  const raw = await complete({
+    model: LLM_MODELS.smart,
+    maxTokens: 800,
+    json: true,
     messages: [
       {
         role: 'user',
@@ -42,9 +41,8 @@ Respond ONLY with valid JSON in this exact format — no explanation, no other t
     ],
   })
 
-  const raw = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
   const match = raw.match(/\{[\s\S]*\}/)
-  if (!match) throw new Error('Claude did not return valid JSON')
+  if (!match) throw new Error('Email draft did not return valid JSON')
 
   const parsed = JSON.parse(match[0]) as { subject?: string; body?: string }
   if (!parsed.subject || !parsed.body) throw new Error('Email draft missing subject or body')

@@ -5,6 +5,7 @@ declare global {
       email: string
       name: string | null
       avatarUrl: string | null
+      companyId: string | null
     }
   }
 }

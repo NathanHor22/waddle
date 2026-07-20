@@ -61,12 +61,14 @@ export function HeroSearch({ sessionId = null, onSessionCreated = null }) {
     <div className={`hero-wrapper${hasSentMessage ? ' hero-wrapper--chat' : ''}`}>
       {!hasSentMessage && (
         <section className="hero">
-          <p className="hero__tagline">
-            Waddling your way to the best deals for your business.
-          </p>
-          <h2 className="hero__heading">
-            What are we waddling into today?
-          </h2>
+          <span className="hero__eyebrow">Supplier discovery</span>
+          <h2 className="hero__heading">Find the right suppliers before you request quotes.</h2>
+          <p className="hero__description">Describe the product, specification, quantity, and delivery location. Waddle will return a focused shortlist you can review and bring into an RFQ.</p>
+          <div className="hero__examples" aria-label="Example searches">
+            {['200L sodium hypochlorite, Shah Alam', 'Medical gloves, 10,000 units', 'Acetone, industrial grade, Singapore'].map((example) => (
+              <button key={example} type="button" onClick={() => setQuery(example)}>{example}</button>
+            ))}
+          </div>
         </section>
       )}
 

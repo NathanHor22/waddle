@@ -1,0 +1,39 @@
+.csec { margin-top: 26px; }
+
+.csec__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0 0 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.csec__caret {
+  color: var(--color-slate);
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+.csec__caret--open { transform: rotate(90deg); }
+
+.csec__title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-slate);
+  font-weight: 600;
+}
+
+.csec__count {
+  display: inline-block;
+  background: #e6eef2;
+  color: var(--color-blue);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 12px;
+}
+
+.csec__body { display: flex; flex-direction: column; gap: 8px; }

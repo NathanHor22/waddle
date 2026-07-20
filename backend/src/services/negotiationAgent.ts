@@ -1,12 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { complete, LLM_MODELS, type LlmMessage } from './llm.js'
 import { getNegotiation, updateNegotiation } from '../db/queries/negotiations.js'
 import { appendMessage, getRecentMessages } from '../db/queries/messages.js'
+import { recordQuote, getQuoteByNegotiation } from '../db/queries/quotes.js'
+import { createGate } from '../db/queries/approvalGates.js'
+import type { Negotiation } from '../types.js'
 import { whatsAppService } from './whatsappBaileys.js'
 import { sseManager } from './sseManager.js'
 import { calculateReadDelay, calculateTypingDelay } from '../utils/delayCalculator.js'
 import type { ConversationMessage, DetectionResult, NegotiationTurnResult } from '../types.js'
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const CONTEXT_WINDOW_SIZE = 6
 const MAX_AGENT_ROUNDS    = 5
@@ -24,8 +25,7 @@ function isRateLimited(phone: string): boolean {
   return timestamps.length > RATE_LIMIT_MAX
 }
 
-// Cached system prompt — Anthropic charges 10% for cache hits vs full price
-// This alone cuts ~65–70% of input token cost across a multi-turn negotiation
+// Shared negotiation persona, sent as the system message each turn.
 const SYSTEM_PROMPT = `You are a procurement negotiation assistant for Waddle. You negotiate with suppliers via WhatsApp on behalf of a buyer.
 
 Your goal: get the best price, MOQ (minimum order quantity), and lead time for the requested product.
@@ -46,9 +46,10 @@ Otherwise respond with only the WhatsApp message text to send — no JSON, no ex
 // ── Token-efficient detection (Haiku — ~25x cheaper than Sonnet) ──────────
 // Classifies incoming supplier message before deciding how to respond
 async function detectSupplierIntent(supplierText: string): Promise<DetectionResult> {
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 150,
+  const raw = await complete({
+    model: LLM_MODELS.fast,
+    maxTokens: 150,
+    json: true,
     messages: [
       {
         role: 'user',
@@ -79,20 +80,20 @@ Rules:
     ],
   })
 
-  const textBlock = response.content.find(b => b.type === 'text')
-  if (!textBlock || textBlock.type !== 'text') {
-    return { hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false, asksQuestion: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null }
+  const fallback: DetectionResult = {
+    hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false,
+    asksQuestion: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null,
   }
-
+  if (!raw) return fallback
   try {
-    return JSON.parse(textBlock.text.trim()) as DetectionResult
+    return JSON.parse(raw) as DetectionResult
   } catch {
-    return { hasQuotedPrice: false, isNegotiationComplete: false, isRejection: false, asksQuestion: false, extractedPrice: null, extractedMoq: null, extractedLeadTime: null }
+    return fallback
   }
 }
 
 // ── Context window builder ─────────────────────────────────────────────────
-function buildMessages(messages: ConversationMessage[]): Anthropic.MessageParam[] {
+function buildMessages(messages: ConversationMessage[]): LlmMessage[] {
   return messages.map(msg => ({
     role: msg.role === 'agent' ? ('assistant' as const) : ('user' as const),
     content: msg.text,
@@ -101,6 +102,23 @@ function buildMessages(messages: ConversationMessage[]): Anthropic.MessageParam[
 
 function countAgentRounds(messages: ConversationMessage[]): number {
   return messages.filter((m, i) => m.role === 'agent' && i > 0).length
+}
+
+// Sends one agent message with human-like typing, persists it, and pushes it to
+// the live panel. The single place outbound WhatsApp messages go out.
+async function deliverAgentMessage(negotiationId: string, phone: string, text: string): Promise<void> {
+  sseManager.emit(negotiationId, 'typing', { isTyping: true })
+  await whatsAppService.sendTypingIndicator(phone, calculateTypingDelay(text))
+  sseManager.emit(negotiationId, 'typing', { isTyping: false })
+
+  await whatsAppService.sendMessage(phone, text)
+
+  const saved = await appendMessage(negotiationId, {
+    role: 'agent',
+    text,
+    timestamp: new Date().toISOString(),
+  })
+  sseManager.emit(negotiationId, 'message', saved)
 }
 
 // ── Main turn ──────────────────────────────────────────────────────────────
@@ -138,8 +156,17 @@ export async function runNegotiationTurn(negotiationId: string): Promise<Negotia
   sseManager.emit(negotiationId, 'activity', { text: 'Reading supplier message...' })
   const detection = await detectSupplierIntent(lastSupplierMsg.text)
 
-  // Emit any extracted terms to the frontend panel
+  // Persist any extracted terms to the quote, then mirror them to the live panel.
   if (detection.extractedPrice || detection.extractedMoq || detection.extractedLeadTime) {
+    await recordQuote({
+      negotiationId,
+      rfqId: negotiation.rfqId ?? null,
+      supplier: negotiation.supplier,
+      channel: 'whatsapp',
+      price: detection.extractedPrice,
+      moq: detection.extractedMoq,
+      leadTime: detection.extractedLeadTime,
+    })
     sseManager.emit(negotiationId, 'extraction', {
       price: detection.extractedPrice ?? undefined,
       moq: detection.extractedMoq ?? undefined,
@@ -173,57 +200,104 @@ export async function runNegotiationTurn(negotiationId: string): Promise<Negotia
 
   const recentMessages = await getRecentMessages(negotiationId, CONTEXT_WINDOW_SIZE)
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 350,
-    system: [
-      {
-        type: 'text',
-        text: SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' },
-      },
-    ],
+  const replyText = await complete({
+    model: LLM_MODELS.smart,
+    maxTokens: 350,
+    system: SYSTEM_PROMPT,
     messages: buildMessages(recentMessages),
   })
 
-  const textBlock = response.content.find(b => b.type === 'text')
-  if (!textBlock || textBlock.type !== 'text') return { done: false }
+  if (!replyText) return { done: false }
 
-  const replyText = textBlock.text.trim()
-
-  // Check if Claude signalled completion
+  // Claude signals an agreed price → stop and ask the buyer before committing.
+  // The price gate is always on; the agent never confirms the deal on its own.
   try {
     const parsed = JSON.parse(replyText) as { action?: string; summary?: string }
     if (parsed.action === 'done' && typeof parsed.summary === 'string') {
-      await updateNegotiation(negotiationId, { status: 'done', summary: parsed.summary })
-      sseManager.emit(negotiationId, 'status', { status: 'done', summary: parsed.summary })
-      return { done: true, summary: parsed.summary }
+      return raisePriceGate(fresh, parsed.summary)
     }
   } catch {
     // Not JSON — treat as a regular message to send
   }
 
-  // Phase 4: Show typing indicator then send
-  sseManager.emit(negotiationId, 'typing', { isTyping: true })
-  const typingDelay = calculateTypingDelay(replyText)
-  await whatsAppService.sendTypingIndicator(fresh.phone, typingDelay)
-  sseManager.emit(negotiationId, 'typing', { isTyping: false })
-
-  await whatsAppService.sendMessage(fresh.phone, replyText)
-
-  const agentMessage: ConversationMessage = {
-    role: 'agent',
-    text: replyText,
-    timestamp: new Date().toISOString(),
-  }
-  const saved = await appendMessage(negotiationId, agentMessage)
+  // Phase 4: Send the reply, then wait for the supplier
+  await deliverAgentMessage(negotiationId, fresh.phone, replyText)
   await updateNegotiation(negotiationId, { status: 'negotiating' })
 
-  sseManager.emit(negotiationId, 'message', saved)
   sseManager.emit(negotiationId, 'status', { status: 'negotiating' })
   sseManager.emit(negotiationId, 'activity', { text: 'Message sent — waiting for reply...' })
 
   return { done: false }
+}
+
+// ── Price gate (Gate 2 — always on) ─────────────────────────────────────────
+// The agent reached agreed terms. Record what it proposes, pause the
+// negotiation, and wait for the buyer to approve / reject / counter.
+async function raisePriceGate(negotiation: Negotiation, summary: string): Promise<NegotiationTurnResult> {
+  const quote = await getQuoteByNegotiation(negotiation.id)
+  await createGate({
+    gateType: 'price',
+    negotiationId: negotiation.id,
+    rfqId: negotiation.rfqId ?? null,
+    proposal: {
+      summary,
+      supplier: negotiation.supplier,
+      price: quote?.price ?? null,
+      moq: quote?.moq ?? null,
+      leadTime: quote?.leadTime ?? null,
+    },
+  })
+
+  await updateNegotiation(negotiation.id, { status: 'awaiting_approval', summary })
+  sseManager.emit(negotiation.id, 'status', { status: 'awaiting_approval', summary })
+  sseManager.emit(negotiation.id, 'activity', {
+    text: 'Agreed terms reached — waiting for your approval before committing.',
+  })
+  return { done: false, paused: true }
+}
+
+// ── Resume after a buyer decision ────────────────────────────────────────────
+
+// Approve: tell the supplier we're proceeding and close out the negotiation.
+export async function commitAgreedPrice(negotiationId: string): Promise<void> {
+  const negotiation = await getNegotiation(negotiationId)
+  if (!negotiation) return
+
+  await deliverAgentMessage(
+    negotiationId,
+    negotiation.phone,
+    "Great — that works for us. Please go ahead and we'll proceed with the order. Thank you!",
+  )
+
+  const summary = negotiation.summary ?? 'Deal approved by buyer.'
+  await updateNegotiation(negotiationId, { status: 'done', summary })
+  sseManager.emit(negotiationId, 'status', { status: 'done', summary })
+}
+
+// Counter: the buyer wants a better deal. Send one directed push and re-open the
+// negotiation so the normal reply loop continues.
+export async function applyCounter(negotiationId: string, directive: string): Promise<void> {
+  const negotiation = await getNegotiation(negotiationId)
+  if (!negotiation) return
+
+  const recentMessages = await getRecentMessages(negotiationId, CONTEXT_WINDOW_SIZE)
+  const text = await complete({
+    model: LLM_MODELS.smart,
+    maxTokens: 300,
+    system: SYSTEM_PROMPT,
+    messages: [
+      ...buildMessages(recentMessages),
+      {
+        role: 'user',
+        content: `[Buyer instruction] The buyer reviewed the terms and is not ready to accept. Keep negotiating: ${directive}. Reply with only the WhatsApp message to send the supplier.`,
+      },
+    ],
+  })
+
+  if (text) await deliverAgentMessage(negotiationId, negotiation.phone, text)
+
+  await updateNegotiation(negotiationId, { status: 'negotiating' })
+  sseManager.emit(negotiationId, 'status', { status: 'negotiating' })
 }
 
 // ── Opening message ────────────────────────────────────────────────────────
@@ -234,31 +308,16 @@ async function sendOpeningMessage(
   quantity: string,
   targetPrice: string,
 ): Promise<NegotiationTurnResult> {
-  const text = buildOpeningMessage({ supplier, product, quantity, targetPrice })
-
-  sseManager.emit(negotiationId, 'activity', { text: 'Sending opening message...' })
-  sseManager.emit(negotiationId, 'typing', { isTyping: true })
-
-  const typingDelay = calculateTypingDelay(text)
   const negotiation = await getNegotiation(negotiationId)
   if (!negotiation) return { done: false }
 
-  await whatsAppService.sendTypingIndicator(negotiation.phone, typingDelay)
-  sseManager.emit(negotiationId, 'typing', { isTyping: false })
+  const text = buildOpeningMessage({ supplier, product, quantity, targetPrice })
+  sseManager.emit(negotiationId, 'activity', { text: 'Sending opening message...' })
 
-  await whatsAppService.sendMessage(negotiation.phone, text)
-
-  const message: ConversationMessage = {
-    role: 'agent',
-    text,
-    timestamp: new Date().toISOString(),
-  }
-  const saved = await appendMessage(negotiationId, message)
+  await deliverAgentMessage(negotiationId, negotiation.phone, text)
   await updateNegotiation(negotiationId, { status: 'sent' })
 
-  sseManager.emit(negotiationId, 'message', saved)
   sseManager.emit(negotiationId, 'activity', { text: `Opening message sent to ${supplier} — waiting for reply...` })
-
   return { done: false }
 }
 

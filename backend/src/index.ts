@@ -14,6 +14,10 @@ import sessionsRouter from './routes/sessions.js'
 import emailRouter from './routes/email.js'
 import authRouter from './routes/auth.js'
 import waddleForMeRouter from './routes/waddleForMe.js'
+import approvalsRouter from './routes/approvals.js'
+import rfqsRouter from './routes/rfqs.js'
+import companiesRouter from './routes/companies.js'
+import dashboardRouter from './routes/dashboard.js'
 
 const app = express()
 app.set('trust proxy', 1) // Railway (and other PaaS) terminate TLS at the proxy
@@ -38,6 +42,10 @@ app.use('/api/email', emailRouter)
 app.use('/api/negotiate', negotiateRouter)
 app.use('/api/whatsapp', whatsappRouter)
 app.use('/api/waddle-for-me', waddleForMeRouter)
+app.use('/api/approvals', approvalsRouter)
+app.use('/api/rfqs', rfqsRouter)
+app.use('/api/companies', companiesRouter)
+app.use('/api/dashboard', dashboardRouter)
 
 app.use(express.static(FRONTEND_DIST))
 app.get('*', (_req, res) => {

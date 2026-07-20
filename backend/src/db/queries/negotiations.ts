@@ -17,6 +17,8 @@ function rowToNegotiation(row: Record<string, unknown>, messages: ConversationMe
     status: row.status as NegotiationStatus,
     sentAt: (row.created_at as Date).toISOString(),
     summary: (row.summary as string | null) ?? undefined,
+    rfqId: (row.rfq_id as string | null) ?? undefined,
+    companyId: (row.company_id as string | null) ?? undefined,
     messages,
   }
 }
@@ -30,16 +32,34 @@ function rowToMessage(row: Record<string, unknown>): ConversationMessage {
 }
 
 export async function createNegotiation(
-  data: Pick<Negotiation, 'supplier' | 'phone' | 'product' | 'quantity' | 'targetPrice'> & { sessionId?: string },
+  data: Pick<Negotiation, 'supplier' | 'phone' | 'product' | 'quantity' | 'targetPrice'>
+    & { sessionId?: string; rfqId?: string; companyId?: string },
 ): Promise<Negotiation> {
   const id = randomUUID()
   const { rows } = await pool.query(
-    `INSERT INTO negotiations (id, supplier, phone, product, quantity, target_price, session_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO negotiations (id, supplier, phone, product, quantity, target_price, session_id, rfq_id, company_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING *`,
-    [id, data.supplier, normalisePhone(data.phone), data.product, data.quantity, data.targetPrice, data.sessionId ?? null],
+    [id, data.supplier, normalisePhone(data.phone), data.product, data.quantity, data.targetPrice,
+     data.sessionId ?? null, data.rfqId ?? null, data.companyId ?? null],
   )
   return rowToNegotiation(rows[0], [])
+}
+
+export async function listNegotiationsByRfq(rfqId: string): Promise<Negotiation[]> {
+  const { rows } = await pool.query(
+    'SELECT * FROM negotiations WHERE rfq_id = $1 ORDER BY created_at ASC',
+    [rfqId],
+  )
+  const negotiations: Negotiation[] = []
+  for (const row of rows) {
+    const { rows: msgRows } = await pool.query(
+      'SELECT * FROM messages WHERE negotiation_id = $1 ORDER BY sent_at ASC',
+      [row.id],
+    )
+    negotiations.push(rowToNegotiation(row, msgRows.map(rowToMessage)))
+  }
+  return negotiations
 }
 
 export async function getNegotiation(id: string): Promise<Negotiation | null> {
@@ -72,6 +92,16 @@ export async function getNegotiationByPhone(phone: string): Promise<Negotiation 
     [negRows[0].id],
   )
   return rowToNegotiation(negRows[0], msgRows.map(rowToMessage))
+}
+
+export async function hasActiveNegotiationForRfqSupplier(rfqId: string, phone: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM negotiations
+     WHERE rfq_id = $1 AND phone = $2 AND status NOT IN ('done','failed')
+     LIMIT 1`,
+    [rfqId, normalisePhone(phone)],
+  )
+  return rows.length > 0
 }
 
 export async function updateNegotiation(

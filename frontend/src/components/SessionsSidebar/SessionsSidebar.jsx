@@ -37,7 +37,10 @@ export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession
   return (
     <aside className="sessions-sidebar">
       <div className="sessions-sidebar__header">
-        <span className="sessions-sidebar__title">Procurements</span>
+        <div>
+          <span className="sessions-sidebar__eyebrow">Saved work</span>
+          <span className="sessions-sidebar__title">Procurements</span>
+        </div>
         <button
           className="sessions-sidebar__new-btn"
           onClick={onNewSession}
@@ -64,11 +67,14 @@ export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession
           <p className="sessions-sidebar__empty">No procurements yet.<br />Start a search above.</p>
         )}
         {user && sessions.map(session => (
-          <button
+          <div
             key={session.id}
             data-dismissing={dismissing.has(session.id) ? 'true' : undefined}
             className={`session-item${session.id === activeSessionId ? ' session-item--active' : ''}`}
             onClick={() => onSelectSession(session.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSession(session.id) } }}
+            role="button"
+            tabIndex={0}
           >
             <div className="session-item__body">
               <p className="session-item__title">{session.title}</p>
@@ -87,7 +93,7 @@ export function SessionsSidebar({ activeSessionId, onSelectSession, onNewSession
             >
               <TrashIcon />
             </button>
-          </button>
+          </div>
         ))}
       </div>
     </aside>

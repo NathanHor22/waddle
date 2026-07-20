@@ -3,6 +3,7 @@ import {
   updateQueueItem,
   getRecoverableItems,
   getNextPosition,
+  getQueueItem,
 } from '../db/queries/queue.js'
 import {
   getNegotiationByPhone,
@@ -10,7 +11,7 @@ import {
 } from '../db/queries/negotiations.js'
 import { appendMessage } from '../db/queries/messages.js'
 import { sseManager } from './sseManager.js'
-import { runNegotiationTurn } from './negotiationAgent.js'
+import { runNegotiationTurn, commitAgreedPrice, applyCounter } from './negotiationAgent.js'
 import type { NegotiationTurnResult } from '../types.js'
 
 const REPLY_TIMEOUT_MS = 3 * 60 * 1_000 // 3 minutes
@@ -80,6 +81,37 @@ class QueueManager {
     this.processNext()
   }
 
+  // Negotiation hit an approval gate — park it and free the queue for the next
+  // supplier. It resumes only when the buyer decides (approve/reject/counter).
+  async onNegotiationPaused(negotiationId: string): Promise<void> {
+    const entry = this.entries.get(negotiationId)
+    if (entry?.timeoutHandle) clearTimeout(entry.timeoutHandle)
+    this.entries.delete(negotiationId)
+    await updateQueueItem(negotiationId, { status: 'done' })
+    this.processNext()
+  }
+
+  // ── Buyer decisions on an open gate ─────────────────────────────────────────
+
+  async approveAndCommit(negotiationId: string): Promise<void> {
+    await commitAgreedPrice(negotiationId)
+  }
+
+  async rejectOffer(negotiationId: string, note?: string): Promise<void> {
+    const summary = note ? `Buyer declined: ${note}` : 'Buyer declined the offer.'
+    await updateNegotiation(negotiationId, { status: 'failed', summary })
+    sseManager.emit(negotiationId, 'status', { status: 'failed', summary })
+  }
+
+  async counterOffer(negotiationId: string, directive: string): Promise<void> {
+    const item = await getQueueItem(negotiationId)
+    const position = item?.position ?? await getNextPosition()
+    this.entries.set(negotiationId, { negotiationId, position, timeoutHandle: null })
+    await updateQueueItem(negotiationId, { status: 'active' })
+    await applyCounter(negotiationId, directive)
+    await this.waitForReply(negotiationId)
+  }
+
   // Rebuild in-memory state from DB on server startup
   async recover(): Promise<void> {
     const items = await getRecoverableItems()
@@ -144,8 +176,16 @@ class QueueManager {
       await this.onNegotiationDone(negotiationId)
       return
     }
+    if (result.paused) {
+      await this.onNegotiationPaused(negotiationId)
+      return
+    }
+    await this.waitForReply(negotiationId)
+  }
 
-    // Start 3-minute wait for supplier reply
+  // Arm the 3-minute wait for a supplier reply. On timeout the entry stays in the
+  // map (so we resume when they eventually reply) and the queue moves on.
+  private async waitForReply(negotiationId: string): Promise<void> {
     const entry = this.entries.get(negotiationId)
     if (!entry) return
 
@@ -159,7 +199,6 @@ class QueueManager {
       sseManager.emit(negotiationId, 'activity', {
         text: 'No reply — moved to next supplier. Will resume when they respond.',
       })
-      // Don't remove the entry — it stays in the map so we resume when they reply
       this.processNext()
     }, REPLY_TIMEOUT_MS)
   }

@@ -107,7 +107,19 @@ export function WaddleForMe({ user, onSignIn }) {
           </div>
         ) : (
           /* Form */
-          <div className="wfm-form-wrap">
+          <div className="wfm-layout">
+            <aside className="wfm-guide">
+              <span className="wfm-guide__label">A controlled handoff</span>
+              <h2>Give Wad enough context to negotiate well.</h2>
+              <p>You choose the supplier and the boundaries. Wad handles the outreach, follow-up, and negotiation.</p>
+              <ol>
+                <li><span>1</span><div><strong>Share the supplier contact</strong><small>WhatsApp or email.</small></div></li>
+                <li><span>2</span><div><strong>Define the request</strong><small>Product, quantity, budget, and constraints.</small></div></li>
+                <li><span>3</span><div><strong>Review the outcome</strong><small>We report what was agreed and what needs your decision.</small></div></li>
+              </ol>
+              <div className="wfm-guide__note">Human approval remains required before committing a purchase.</div>
+            </aside>
+            <div className="wfm-form-wrap">
             <div className="wfm-form-header">
               <span className="wfm-eyebrow">Done for you</span>
               <h1 className="wfm-heading">Waddle for Me</h1>
@@ -235,6 +247,7 @@ export function WaddleForMe({ user, onSignIn }) {
                 </button>
               </form>
             )}
+            </div>
           </div>
         )}
       </div>
