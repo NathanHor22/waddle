@@ -1,0 +1,274 @@
+/* ── Connections hub ─────────────────────────────────────────
+   Channel cards for the dark procurement shell. WhatsApp brand
+   green (#25d366) accents against the app's card/border tokens. */
+
+.conn { max-width: 1080px; }
+
+.conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+
+/* ── Card shell ── */
+.conn-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  transition: border-color .25s ease, box-shadow .25s ease;
+}
+.conn-card--wa.is-live {
+  border-color: color-mix(in srgb, #25d366 45%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #25d366 22%, transparent), var(--shadow-md);
+}
+.conn-card--soon { opacity: .82; }
+
+/* soft ambient glow, brightens when live */
+.conn-card__glow {
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 220px; height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, #25d366 20%, transparent), transparent 70%);
+  opacity: .35;
+  transition: opacity .4s ease;
+  pointer-events: none;
+}
+.conn-card--wa.is-live .conn-card__glow { opacity: .9; }
+
+/* ── Header ── */
+.conn-card__head {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.conn-card__brand { display: flex; align-items: center; gap: 13px; }
+.conn-card__brand h2 { margin: 0; font-size: 16px; letter-spacing: -.01em; color: var(--foreground); }
+.conn-card__brand p { margin: 3px 0 0; font-size: 12px; color: var(--muted-foreground); }
+
+.conn-brand-tile {
+  display: flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; flex: 0 0 42px;
+  border-radius: 11px;
+  color: #fff;
+}
+.conn-brand-tile--wa {
+  background: linear-gradient(145deg, #25d366, #128C7E);
+  box-shadow: 0 6px 16px color-mix(in srgb, #25d366 40%, transparent);
+}
+.conn-brand-tile--mail {
+  background: linear-gradient(145deg, #4A90A4, #1A3A52);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Status chip ── */
+.conn-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 650; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.conn-chip__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.conn-chip--live {
+  color: #25d366;
+  background: color-mix(in srgb, #25d366 14%, transparent);
+  border-color: color-mix(in srgb, #25d366 35%, transparent);
+}
+.conn-chip--live .conn-chip__dot { animation: conn-pulse 1.6s ease-in-out infinite; }
+.conn-chip--pending {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 32%, transparent);
+}
+.conn-chip--off {
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--muted-foreground) 12%, transparent);
+}
+.conn-chip--soon {
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+}
+
+/* ── Body ── */
+.conn-card__body { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 20px; }
+.conn-lead { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted-foreground); }
+.conn-cta { align-self: flex-start; }
+
+/* ── Device-link visual (idle) ── */
+.conn-link-viz {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 18px 0 8px;
+}
+.conn-node {
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 60%, var(--card));
+  color: var(--muted-foreground);
+}
+.conn-node--waddle { color: var(--primary); }
+.conn-link-wire { display: flex; gap: 5px; padding: 0 6px; }
+.conn-link-wire span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: color-mix(in srgb, #25d366 55%, var(--border));
+  animation: conn-flow 1.4s ease-in-out infinite;
+}
+.conn-link-wire span:nth-child(2) { animation-delay: .2s; }
+.conn-link-wire span:nth-child(3) { animation-delay: .4s; }
+
+.conn-assurances { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.conn-assurances li { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted-foreground); }
+.conn-assurances svg { color: #25d366; flex: 0 0 auto; }
+
+/* ── Connect panel ── */
+.conn-tabs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  padding: 4px; border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 55%, var(--card));
+  border: 1px solid var(--border);
+}
+.conn-tab {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 34px; border-radius: 7px;
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  color: var(--muted-foreground); cursor: pointer; border: none; background: transparent;
+  transition: background .15s ease, color .15s ease;
+}
+.conn-tab.is-active { background: var(--card); color: var(--foreground); box-shadow: var(--shadow-sm); }
+.conn-tab:not(.is-active):hover { color: var(--foreground); }
+
+.conn-connect { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+/* framed scanner */
+.conn-scanner {
+  position: relative;
+  width: 220px; height: 220px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px;
+}
+.conn-scanner__qr { width: 100%; height: 100%; border-radius: 6px; display: block; }
+.conn-scanner__pending {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  color: var(--color-slate); font-size: 12px;
+}
+.conn-scanner__bracket {
+  position: absolute; width: 22px; height: 22px;
+  border: 3px solid #25d366; border-radius: 3px;
+}
+.conn-scanner__bracket--tl { top: -3px; left: -3px; border-right: none; border-bottom: none; border-top-left-radius: 8px; }
+.conn-scanner__bracket--tr { top: -3px; right: -3px; border-left: none; border-bottom: none; border-top-right-radius: 8px; }
+.conn-scanner__bracket--bl { bottom: -3px; left: -3px; border-right: none; border-top: none; border-bottom-left-radius: 8px; }
+.conn-scanner__bracket--br { bottom: -3px; right: -3px; border-left: none; border-top: none; border-bottom-right-radius: 8px; }
+
+.conn-steps { margin: 0; padding-left: 18px; display: grid; gap: 7px; width: 100%; }
+.conn-steps li { font-size: 12.5px; color: var(--muted-foreground); line-height: 1.5; }
+.conn-steps strong { color: var(--foreground); font-weight: 650; }
+
+/* pairing code */
+.conn-phone { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.conn-phone__label { font-size: 12px; font-weight: 600; color: var(--foreground); }
+.conn-phone__input {
+  width: 100%; min-height: 40px; padding: 0 12px;
+  border: 1px solid var(--input, var(--border)); border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 55%, var(--card));
+  color: var(--foreground); font: inherit; font-size: 13px;
+}
+.conn-phone__input:focus { outline: none; border-color: #25d366; box-shadow: 0 0 0 3px color-mix(in srgb, #25d366 20%, transparent); }
+.conn-phone__error { margin: 0; font-size: 12px; color: var(--destructive); }
+
+.conn-code { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.conn-code__label { font-size: 12px; color: var(--muted-foreground); }
+.conn-code__boxes { display: flex; align-items: center; gap: 7px; }
+.conn-code__box {
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 46px; border-radius: 9px;
+  border: 1px solid color-mix(in srgb, #25d366 40%, var(--border));
+  background: color-mix(in srgb, #25d366 8%, var(--card));
+  font-size: 20px; font-weight: 700; color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+.conn-code__sep { color: var(--muted-foreground); font-size: 18px; }
+
+.conn-textlink {
+  align-self: center; border: none; background: none; cursor: pointer;
+  color: var(--muted-foreground); font: inherit; font-size: 12px; text-decoration: underline;
+}
+.conn-textlink:hover { color: var(--foreground); }
+
+/* ── Live state ── */
+.conn-live {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px; border-radius: 12px;
+  border: 1px solid color-mix(in srgb, #25d366 30%, var(--border));
+  background: color-mix(in srgb, #25d366 8%, var(--card));
+}
+.conn-live__pulse {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; flex: 0 0 46px; border-radius: 50%;
+  background: linear-gradient(145deg, #25d366, #128C7E); color: #fff;
+}
+.conn-live__pulse span {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid #25d366; animation: conn-ring 2s ease-out infinite;
+}
+.conn-live__pulse span:nth-child(2) { animation-delay: 1s; }
+.conn-live__meta { display: grid; gap: 3px; }
+.conn-live__meta strong { font-size: 15px; color: var(--foreground); font-variant-numeric: tabular-nums; }
+.conn-live__meta span { font-size: 12px; color: #25d366; font-weight: 600; }
+
+.conn-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.conn-facts > div {
+  display: grid; gap: 4px; padding: 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 45%, var(--card));
+}
+.conn-facts span { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted-foreground); }
+.conn-facts strong { font-size: 13px; color: var(--foreground); font-weight: 600; }
+.conn-facts__ok { color: #25d366 !important; }
+.conn-live__actions { display: flex; justify-content: flex-end; }
+.conn-live__actions .secondary-button { display: inline-flex; align-items: center; gap: 7px; }
+
+/* ── Email card accents (blue instead of WhatsApp green) ── */
+.conn-card--mail.is-live {
+  border-color: color-mix(in srgb, var(--color-blue) 45%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-blue) 20%, transparent), var(--shadow-md);
+}
+.conn-card--mail .conn-live {
+  border-color: color-mix(in srgb, var(--color-blue) 30%, var(--border));
+  background: color-mix(in srgb, var(--color-blue) 8%, var(--card));
+}
+.conn-live__pulse--mail { background: linear-gradient(145deg, var(--color-blue), var(--color-navy)); }
+.conn-live__pulse--mail span { border-color: var(--color-blue); }
+.conn-live__meta--mail { color: var(--color-blue) !important; }
+
+.conn-inline-alert {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 8px;
+  font-size: 12.5px; color: var(--destructive);
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--destructive) 30%, transparent);
+}
+
+/* ── animation ── */
+.conn-spin { animation: conn-spin 1s linear infinite; }
+@keyframes conn-spin { to { transform: rotate(360deg); } }
+@keyframes conn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes conn-flow { 0%, 100% { opacity: .3; transform: translateX(-2px); } 50% { opacity: 1; transform: translateX(2px); } }
+@keyframes conn-ring { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.7); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .conn-chip--live .conn-chip__dot, .conn-link-wire span,
+  .conn-live__pulse span, .conn-spin { animation: none; }
+}

@@ -1,17 +1,33 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
-import { whatsAppService } from '../services/whatsappBaileys.js'
+import { whatsappManager } from '../services/whatsappBaileys.js'
+import { requireAuth } from '../middleware/auth.js'
 
 const router = Router()
 
-// Returns the current WhatsApp connection status
-router.get('/status', (_req: Request, res: Response) => {
-  res.json({ status: whatsAppService.getStatus() })
+// Resolve the signed-in user's company, or 400 if they haven't onboarded.
+function companyOf(req: Request, res: Response): string | null {
+  const companyId = req.user?.companyId
+  if (!companyId) {
+    res.status(400).json({ error: 'Set up your company before connecting WhatsApp' })
+    return null
+  }
+  return companyId
+}
+
+// Current connection status, linked number and link time for this company.
+// Ensures the session exists so status polling drives the QR flow.
+router.get('/status', requireAuth, (req: Request, res: Response) => {
+  const companyId = companyOf(req, res)
+  if (!companyId) return
+  res.json(whatsappManager.getInfo(companyId))
 })
 
-// Returns the current QR code as a base64 data URL, or null if not in QR state
-router.get('/qr', (_req: Request, res: Response) => {
-  const qr = whatsAppService.getQR()
+// Current QR as a base64 data URL, or 404 if not in a QR state.
+router.get('/qr', requireAuth, (req: Request, res: Response) => {
+  const companyId = companyOf(req, res)
+  if (!companyId) return
+  const qr = whatsappManager.getQR(companyId)
   if (!qr) {
     res.status(404).json({ error: 'No QR code available — WhatsApp may already be connected or still initialising' })
     return
@@ -19,42 +35,29 @@ router.get('/qr', (_req: Request, res: Response) => {
   res.json({ qr })
 })
 
-// Scannable QR page — open in browser, scan with WhatsApp, refreshes automatically
-router.get('/qr-page', (_req: Request, res: Response) => {
-  const status = whatsAppService.getStatus()
-  const qr = whatsAppService.getQR()
-
-  if (status === 'connected') {
-    res.send(`<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f0fdf4">
-      <div style="text-align:center">
-        <div style="font-size:48px">✅</div>
-        <h2 style="color:#166534">WhatsApp Connected</h2>
-        <p style="color:#15803d">You can close this tab.</p>
-      </div>
-    </body></html>`)
-    return
+// Requests an 8-char pairing code for this company (QR alternative).
+router.post('/pair', requireAuth, async (req: Request, res: Response) => {
+  const companyId = companyOf(req, res)
+  if (!companyId) return
+  const phone = typeof req.body?.phone === 'string' ? req.body.phone : ''
+  try {
+    const code = await whatsappManager.requestPairingCode(companyId, phone)
+    res.json({ code })
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Could not request pairing code' })
   }
+})
 
-  if (!qr) {
-    res.send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="2"></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-      <div style="text-align:center">
-        <div style="font-size:48px">⏳</div>
-        <h2>Generating QR code...</h2>
-        <p style="color:#64748b">This page refreshes automatically.</p>
-      </div>
-    </body></html>`)
-    return
+// Unlinks this company's connected device.
+router.post('/disconnect', requireAuth, async (req: Request, res: Response) => {
+  const companyId = companyOf(req, res)
+  if (!companyId) return
+  try {
+    await whatsappManager.disconnect(companyId)
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Could not disconnect' })
   }
-
-  res.send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="30"></head>
-    <body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc">
-      <div style="text-align:center">
-        <h2 style="color:#1a3a52;margin-bottom:4px">Connect WhatsApp to Waddle</h2>
-        <p style="color:#64748b;margin-bottom:20px">Open WhatsApp → Linked Devices → Link a Device → scan this code</p>
-        <img src="${qr}" style="width:260px;height:260px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.12)" />
-        <p style="color:#94a3b8;font-size:13px;margin-top:16px">QR expires in ~60s — page auto-refreshes every 30s</p>
-      </div>
-    </body></html>`)
 })
 
 export default router

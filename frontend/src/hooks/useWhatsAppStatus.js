@@ -6,12 +6,16 @@ const POLL_MS = 3_000
 export function useWhatsAppStatus() {
   const [status, setStatus] = useState('connecting')
   const [qr, setQr] = useState(null)
+  const [phone, setPhone] = useState(null)
+  const [since, setSince] = useState(null)
   const pollRef = useRef(null)
 
   const poll = useCallback(async () => {
     try {
-      const { status: s } = await getWhatsAppStatus()
+      const { status: s, phone: p, since: sn } = await getWhatsAppStatus()
       setStatus(s)
+      setPhone(p ?? null)
+      setSince(sn ?? null)
 
       if (s === 'qr_ready') {
         try {
@@ -38,5 +42,8 @@ export function useWhatsAppStatus() {
     status,
     isConnected: status === 'connected',
     qr,
+    phone,
+    since,
+    refresh: poll,
   }
 }

@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard'
 import { AppShell } from './components/shell/AppShell'
 import { DashboardDataProvider } from './components/shell/DashboardData'
 import { RfqDetail } from './pages/RfqDetail'
+import { Connections } from './pages/Connections'
 import { Onboarding } from './pages/Onboarding'
 import { getMe } from './lib/authApi'
 import './index.css'
@@ -69,6 +70,20 @@ export default function App() {
               <DashboardDataProvider>
                 <AppShell user={user} onSignOut={handleSignOut}>
                   <Dashboard user={user} />
+                </AppShell>
+              </DashboardDataProvider>
+            )
+        }
+      />
+      <Route
+        path="/connections"
+        element={
+          !authChecked ? <div className="app-loading">Loading…</div>
+            : user && !user.companyId ? <Navigate to="/onboarding" replace />
+            : (
+              <DashboardDataProvider>
+                <AppShell user={user} onSignOut={handleSignOut}>
+                  <Connections />
                 </AppShell>
               </DashboardDataProvider>
             )

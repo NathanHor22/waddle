@@ -35,9 +35,11 @@ class QueueManager {
     this.processNext()
   }
 
-  // Called by the Baileys message handler when a supplier replies
-  async onIncomingReply(phone: string, text: string, timestamp: string): Promise<void> {
-    const negotiation = await getNegotiationByPhone(phone)
+  // Called by the Baileys message handler when a supplier replies. companyId is
+  // the tenant whose WhatsApp session received the message, so the reply routes
+  // to the right negotiation even if two companies talk to the same supplier.
+  async onIncomingReply(companyId: string, phone: string, text: string, timestamp: string): Promise<void> {
+    const negotiation = await getNegotiationByPhone(phone, companyId)
     if (!negotiation) return
     if (negotiation.status === 'done' || negotiation.status === 'failed') return
 

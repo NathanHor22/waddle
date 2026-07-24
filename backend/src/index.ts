@@ -9,7 +9,8 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '../.env') })
 import { runMigrations } from './db/migrate.js'
-import { whatsAppService } from './services/whatsappBaileys.js'
+import { whatsappManager } from './services/whatsappBaileys.js'
+import { hasActiveNegotiationForCompany, getCompaniesWithActiveNegotiations } from './db/queries/negotiations.js'
 import { queueManager } from './services/queueManager.js'
 import negotiateRouter from './routes/negotiate.js'
 import whatsappRouter from './routes/whatsapp.js'
@@ -64,19 +65,31 @@ async function start(): Promise<void> {
     console.log(`[server] Waddle backend → http://0.0.0.0:${PORT}`)
   })
 
-  // 3. Initialise WhatsApp — non-fatal so a Baileys error never takes the HTTP server down
-  whatsAppService.onMessage((phone, text) => {
-    queueManager.onIncomingReply(phone, text, new Date().toISOString()).catch(err => {
+  // 3. Wire WhatsApp — inbound replies route to the queue, scoped by the tenant
+  //    whose session received them. Non-fatal so a Baileys error never takes the
+  //    HTTP server down. Sessions are created lazily per company, not at boot.
+  whatsappManager.onMessage((companyId, phone, text) => {
+    queueManager.onIncomingReply(companyId, phone, text, new Date().toISOString()).catch(err => {
       console.error('[server] incoming message error:', err)
     })
   })
 
-  whatsAppService.initialize()
-    .then(() => console.log('[whatsapp] initialising...'))
-    .catch(err => console.error('[whatsapp] startup error (non-fatal):', err))
+  // Keep a company's socket alive while it has in-flight negotiations, so the
+  // idle sweeper never sleeps a session that's awaiting a supplier reply.
+  whatsappManager.setIdleGuard(companyId => hasActiveNegotiationForCompany(companyId))
 
   // 4. Recover any negotiations that were mid-flight before the last restart
   await queueManager.recover()
+
+  // 5. Warm the sockets for companies with active negotiations, so ongoing
+  //    conversations keep receiving replies even with no one viewing the app.
+  try {
+    const companyIds = await getCompaniesWithActiveNegotiations()
+    for (const companyId of companyIds) whatsappManager.ensure(companyId)
+    if (companyIds.length) console.log(`[whatsapp] warmed ${companyIds.length} session(s) with active work`)
+  } catch (err) {
+    console.error('[whatsapp] warm-up error (non-fatal):', err)
+  }
 }
 
 start().catch(err => {

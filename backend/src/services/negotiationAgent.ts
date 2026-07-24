@@ -4,7 +4,7 @@ import { appendMessage, getRecentMessages } from '../db/queries/messages.js'
 import { recordQuote, getQuoteByNegotiation } from '../db/queries/quotes.js'
 import { createGate } from '../db/queries/approvalGates.js'
 import type { Negotiation } from '../types.js'
-import { whatsAppService } from './whatsappBaileys.js'
+import { whatsappManager } from './whatsappBaileys.js'
 import { sseManager } from './sseManager.js'
 import { calculateReadDelay, calculateTypingDelay } from '../utils/delayCalculator.js'
 import type { ConversationMessage, DetectionResult, NegotiationTurnResult } from '../types.js'
@@ -106,12 +106,12 @@ function countAgentRounds(messages: ConversationMessage[]): number {
 
 // Sends one agent message with human-like typing, persists it, and pushes it to
 // the live panel. The single place outbound WhatsApp messages go out.
-async function deliverAgentMessage(negotiationId: string, phone: string, text: string): Promise<void> {
+async function deliverAgentMessage(negotiationId: string, companyId: string | undefined, phone: string, text: string): Promise<void> {
   sseManager.emit(negotiationId, 'typing', { isTyping: true })
-  await whatsAppService.sendTypingIndicator(phone, calculateTypingDelay(text))
+  await whatsappManager.sendTypingIndicator(companyId, phone, calculateTypingDelay(text))
   sseManager.emit(negotiationId, 'typing', { isTyping: false })
 
-  await whatsAppService.sendMessage(phone, text)
+  await whatsappManager.sendMessage(companyId, phone, text)
 
   const saved = await appendMessage(negotiationId, {
     role: 'agent',
@@ -221,7 +221,7 @@ export async function runNegotiationTurn(negotiationId: string): Promise<Negotia
   }
 
   // Phase 4: Send the reply, then wait for the supplier
-  await deliverAgentMessage(negotiationId, fresh.phone, replyText)
+  await deliverAgentMessage(negotiationId, fresh.companyId, fresh.phone, replyText)
   await updateNegotiation(negotiationId, { status: 'negotiating' })
 
   sseManager.emit(negotiationId, 'status', { status: 'negotiating' })
@@ -265,6 +265,7 @@ export async function commitAgreedPrice(negotiationId: string): Promise<void> {
 
   await deliverAgentMessage(
     negotiationId,
+    negotiation.companyId,
     negotiation.phone,
     "Great — that works for us. Please go ahead and we'll proceed with the order. Thank you!",
   )
@@ -294,7 +295,7 @@ export async function applyCounter(negotiationId: string, directive: string): Pr
     ],
   })
 
-  if (text) await deliverAgentMessage(negotiationId, negotiation.phone, text)
+  if (text) await deliverAgentMessage(negotiationId, negotiation.companyId, negotiation.phone, text)
 
   await updateNegotiation(negotiationId, { status: 'negotiating' })
   sseManager.emit(negotiationId, 'status', { status: 'negotiating' })
@@ -314,7 +315,7 @@ async function sendOpeningMessage(
   const text = buildOpeningMessage({ supplier, product, quantity, targetPrice })
   sseManager.emit(negotiationId, 'activity', { text: 'Sending opening message...' })
 
-  await deliverAgentMessage(negotiationId, negotiation.phone, text)
+  await deliverAgentMessage(negotiationId, negotiation.companyId, negotiation.phone, text)
   await updateNegotiation(negotiationId, { status: 'sent' })
 
   sseManager.emit(negotiationId, 'activity', { text: `Opening message sent to ${supplier} — waiting for reply...` })

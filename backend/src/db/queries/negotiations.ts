@@ -76,14 +76,16 @@ export async function getNegotiation(id: string): Promise<Negotiation | null> {
   return rowToNegotiation(negRows[0], msgRows.map(rowToMessage))
 }
 
-export async function getNegotiationByPhone(phone: string): Promise<Negotiation | null> {
-  // Most recent active negotiation for this phone number
+export async function getNegotiationByPhone(phone: string, companyId?: string): Promise<Negotiation | null> {
+  // Most recent active negotiation for this phone number. Scoped by company when
+  // provided, so a supplier that two tenants both talk to is never cross-wired.
   const { rows: negRows } = await pool.query(
     `SELECT * FROM negotiations
      WHERE phone = $1 AND status NOT IN ('done','failed')
+       AND ($2::uuid IS NULL OR company_id = $2)
      ORDER BY created_at DESC
      LIMIT 1`,
-    [normalisePhone(phone)],
+    [normalisePhone(phone), companyId ?? null],
   )
   if (negRows.length === 0) return null
 
@@ -102,6 +104,28 @@ export async function hasActiveNegotiationForRfqSupplier(rfqId: string, phone: s
     [rfqId, normalisePhone(phone)],
   )
   return rows.length > 0
+}
+
+// True if the company has any in-flight negotiation — used to keep its WhatsApp
+// socket alive (the idle sweeper won't sleep a company with pending replies).
+export async function hasActiveNegotiationForCompany(companyId: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM negotiations
+     WHERE company_id = $1 AND status NOT IN ('done','failed')
+     LIMIT 1`,
+    [companyId],
+  )
+  return rows.length > 0
+}
+
+// Distinct companies with in-flight negotiations — used to warm their sockets on
+// boot so ongoing negotiations keep receiving replies without a viewer present.
+export async function getCompaniesWithActiveNegotiations(): Promise<string[]> {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT company_id FROM negotiations
+     WHERE company_id IS NOT NULL AND status NOT IN ('done','failed')`,
+  )
+  return rows.map((r: { company_id: string }) => r.company_id)
 }
 
 export async function updateNegotiation(

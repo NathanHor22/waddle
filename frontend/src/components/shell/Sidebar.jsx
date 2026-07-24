@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { ClipboardList, Search, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react'
+import { ClipboardList, Search, Plug, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react'
 import { Dragonfly } from './Dragonfly'
+import { useWhatsAppStatus } from '../../hooks/useWhatsAppStatus.js'
 import { cn } from './cn'
 
 // Real routes only — no dead links. More land here as pages ship.
 const nav = [
   { to: '/rfqs', label: 'Work queue', icon: ClipboardList, end: true },
   { to: '/app', label: 'Supplier search', icon: Search },
+  { to: '/connections', label: 'Connections', icon: Plug },
 ]
 
 export function Sidebar({ user, onSignOut }) {
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [confirmingSignOut, setConfirmingSignOut] = useState(false)
+  const { isConnected } = useWhatsAppStatus()
   const initial = (user?.name || user?.email || 'You').trim().charAt(0).toUpperCase()
 
   return (
@@ -36,7 +39,7 @@ export function Sidebar({ user, onSignOut }) {
             end={end}
             className={({ isActive }) =>
               cn(
-                'sidebar-nav__item flex items-center gap-2.5 rounded-md text-[13px] font-medium transition-colors',
+                'sidebar-nav__item relative flex items-center gap-2.5 rounded-md text-[13px] font-medium transition-colors',
                 isActive
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -46,6 +49,17 @@ export function Sidebar({ user, onSignOut }) {
           >
             <Icon className="h-4 w-4 shrink-0" />
             {!collapsed && <span>{label}</span>}
+            {to === '/connections' && (
+              <span
+                className={cn(
+                  'ml-auto h-2 w-2 rounded-full shrink-0',
+                  collapsed && 'absolute right-1.5 top-1.5',
+                )}
+                style={{ background: isConnected ? '#25d366' : 'var(--warning)' }}
+                title={isConnected ? 'WhatsApp connected' : 'Not connected'}
+                aria-label={isConnected ? 'WhatsApp connected' : 'Not connected'}
+              />
+            )}
           </NavLink>
         ))}
       </nav>
